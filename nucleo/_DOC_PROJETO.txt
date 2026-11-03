@@ -1,0 +1,81 @@
+════════════════════════════════════════════════════════════════════════════════
+  DOCUMENTAÇÃO DO PROJETO
+════════════════════════════════════════════════════════════════════════════════
+
+hen-Nave é um navegador desktop independente, em Python, PySide6 e
+QtWebEngine. Ele abre uma página inicial própria, navega em HTTP(S), salva
+histórico/favoritos/sessão em SQLite e mantém cookies/cache em um perfil
+persistentemente guardado em ~/.hen-nave. Janelas anônimas usam perfil
+temporário, não gravam histórico e não entram na sessão restaurada.
+
+────────────────────────────────────────────────────────────────────────────────
+MÓDULOS E RESPONSABILIDADES
+────────────────────────────────────────────────────────────────────────────────
+
+_CONFIGURA_/
+  Fonte única de verdade para hardcodes. Cores, atalhos, dimensões, strings
+  de UI. Nenhum outro arquivo pode ter valores fixos.
+
+_LOGS_/
+  Logger singleton. Gera LOG_GERAL.log a cada sessão.
+  Captura crashes Python (sys.excepthook) e nativos C/Qt (faulthandler).
+
+_APPDATA_/
+  Gerencia a pasta do usuário no sistema (%APPDATA% / ~/).
+  Caminhos canônicos, config.json, sessao.json.
+
+_THREADS_/
+  Base class ThreadSegura e gerenciador central ThreadManager.
+  Todas as threads do projeto herdam ThreadSegura.
+
+_APP_/
+  Janela principal integrada ao navegador.
+  Navegador/abas.py mantém a aba Principal fixa no primeiro índice.
+
+browser.py
+  Controlador de janelas/perfis, páginas WebEngine, downloads, zoom, busca,
+  tela cheia e persistência da sessão.
+
+storage.py
+  Banco SQLite parametrizado para histórico, favoritos e sessão.
+
+startpage.py
+  HTML local da página inicial; escapa valores dinâmicos e aceita somente
+  URLs HTTP(S) nos links.
+
+utils.py
+  Valida a barra de endereço e converte texto livre em consulta DuckDuckGo.
+
+dialogs.py
+  Janelas de histórico e favoritos com busca, abertura e remoção.
+
+tests/
+  Testes unittest para resolução de endereços, SQLite e HTML inicial.
+
+_ULTILIDADES_/
+  Ícones, popups e ferramentas reutilizáveis.
+
+nucleo/
+  Apenas documentação .txt. NUNCA coloque .py aqui.
+
+────────────────────────────────────────────────────────────────────────────────
+DECISÕES DE ARQUITETURA
+────────────────────────────────────────────────────────────────────────────────
+
+  - A página inicial é um arquivo local em AppData, não setHtml; o esquema
+    hennave://search é interceptado pela subclasse QWebEnginePage.
+  - Somente URLs HTTP(S) entram em histórico, favoritos e sessão.
+  - O perfil anônimo é mantido vivo até a destruição das views que o usam.
+  - A sessão só é gravada depois de concluir a restauração; a janela final
+    salva sua lista antes de ser removida do controlador.
+  - O código nunca desativa o sandbox do Chromium nem concede acesso local
+    a páginas remotas.
+
+────────────────────────────────────────────────────────────────────────────────
+DEPENDÊNCIAS EXTERNAS
+────────────────────────────────────────────────────────────────────────────────
+
+  PySide6       — framework Qt e Chromium via QtWebEngine
+  qtawesome     — ícones FontAwesome, opcional para a interface
+
+════════════════════════════════════════════════════════════════════════════════

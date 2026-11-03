@@ -57,7 +57,12 @@ def is_http_url(value: str) -> bool:
         parsed = urlsplit(value.strip())
     except (TypeError, ValueError):
         return False
-    if parsed.scheme.lower() not in {"http", "https"} or not _valid_port(parsed):
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or parsed.username is not None
+        or parsed.password is not None
+        or not _valid_port(parsed)
+    ):
         return False
     valid, _ = _valid_host(parsed.hostname)
     return valid

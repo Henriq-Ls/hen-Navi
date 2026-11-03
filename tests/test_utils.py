@@ -17,6 +17,7 @@ class ResolveAddressTests(unittest.TestCase):
         self.assertEqual(resolve_address("https://example.com/a?q=1"), "https://example.com/a?q=1")
         self.assertTrue(is_http_url("http://localhost:8000"))
         self.assertFalse(is_http_url("file:///etc/passwd"))
+        self.assertFalse(is_http_url("https://user:secret@example.com/"))
 
     def test_search_terms_are_encoded(self):
         target = resolve_address("gatos e cães")

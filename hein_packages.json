@@ -67,3 +67,112 @@
     "versao": "2.4.3",
     "instalado_em": "2026-11-03T02:30:42"
   },
+  "annotated-types": {
+    "versao": "0.8.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "anthropic": {
+    "versao": "2.4.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "anyio": {
+    "versao": "4.16.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "colorama": {
+    "versao": "0.4.6",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "docstring-parser": {
+    "versao": "0.18.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "h11": {
+    "versao": "0.16.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "httpcore2": {
+    "versao": "2.16.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "httpx2": {
+    "versao": "2.16.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "idna": {
+    "versao": "3.20",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "iniconfig": {
+    "versao": "2.3.1",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "jaraco.classes": {
+    "versao": "3.4.0",
+    "instalado_em": "2026-11-03T02:41:13"
+  },
+  "jaraco.context": {
+    "versao": "6.1.2",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "jaraco.functools": {
+    "versao": "4.6.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "jiter": {
+    "versao": "0.18.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "keyring": {
+    "versao": "25.7.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "more-itertools": {
+    "versao": "11.2.1",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "opentelemetry-api": {
+    "versao": "1.45.2",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "pluggy": {
+    "versao": "1.7.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "pydantic": {
+    "versao": "2.14.2",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "pydantic-core": {
+    "versao": "2.50.2",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "pygments": {
+    "versao": "2.21.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "pytest": {
+    "versao": "9.2.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "sniffio": {
+    "versao": "1.3.1",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "truststore": {
+    "versao": "0.10.5",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "typing-extensions": {
+    "versao": "4.16.0",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "typing-inspection": {
+    "versao": "0.4.4",
+    "instalado_em": "2026-11-03T02:41:14"
+  },
+  "yt-dlp": {
+    "versao": "2026.10.26",
+    "instalado_em": "2026-11-03T02:41:14"
+  }
+}

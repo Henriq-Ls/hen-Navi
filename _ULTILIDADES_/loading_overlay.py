@@ -65,6 +65,7 @@ from _CONFIGURA_ import (
     COR_BORDA,
     COR_TEXTO_SECUNDARIO,
     FONTE_TAMANHO_LABEL,
+    TEXTO_UI,
 )
 
 
@@ -160,7 +161,7 @@ class LoadingOverlay(QDialog):
     def __init__(
         self,
         parent: QWidget,
-        mensagem: str = "Aguarde...",
+        mensagem: str = TEXTO_UI["wait"],
         cor_spinner: str = COR_ACENTO,
         cor_fundo: str   = COR_BG_CAMPO,
         cor_texto: str   = COR_TEXTO_SECUNDARIO,

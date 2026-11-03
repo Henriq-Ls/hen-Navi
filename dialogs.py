@@ -8,7 +8,9 @@ from _CONFIGURA_ import (
     ALTURA_DIALOGO_PADRAO,
     ESTILO_DIALOGO_ESCURO,
     ESTILO_LIST_WIDGET,
+    FORMATO_DATA_HISTORICO,
     LARGURA_DIALOGO_PADRAO,
+    TEXTO_UI,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -31,14 +33,14 @@ class HistoryDialog(QDialog):
     def __init__(self, storage, parent=None):
         super().__init__(parent)
         self.storage = storage
-        self.setWindowTitle("Histórico")
+        self.setWindowTitle(TEXTO_UI["history"])
         self.resize(LARGURA_DIALOGO_PADRAO, ALTURA_DIALOGO_PADRAO)
         self.setStyleSheet(ESTILO_DIALOGO_ESCURO + ESTILO_LIST_WIDGET)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Pesquisar no histórico"))
+        layout.addWidget(QLabel(TEXTO_UI["history_search_label"]))
         self.search_field = QLineEdit(self)
-        self.search_field.setPlaceholderText("Título ou endereço")
+        self.search_field.setPlaceholderText(TEXTO_UI["history_search_placeholder"])
         self.search_field.textChanged.connect(self._refresh)
         layout.addWidget(self.search_field)
 
@@ -47,10 +49,10 @@ class HistoryDialog(QDialog):
         layout.addWidget(self.entries)
 
         buttons = QHBoxLayout()
-        self.open_button = QPushButton("Abrir em nova aba", self)
-        self.remove_button = QPushButton("Remover selecionado", self)
-        self.clear_button = QPushButton("Limpar histórico", self)
-        self.close_button = QPushButton("Fechar", self)
+        self.open_button = QPushButton(TEXTO_UI["history_open"], self)
+        self.remove_button = QPushButton(TEXTO_UI["history_remove"], self)
+        self.clear_button = QPushButton(TEXTO_UI["clear_history"], self)
+        self.close_button = QPushButton(TEXTO_UI["close"], self)
         self.open_button.clicked.connect(self._open_selected)
         self.remove_button.clicked.connect(self._remove_selected)
         self.clear_button.clicked.connect(self._clear_all)
@@ -68,12 +70,18 @@ class HistoryDialog(QDialog):
         for entry in self.storage.get_history(self.search_field.text()):
             title = entry["title"] or entry["url"]
             try:
-                visited = datetime.fromtimestamp(entry["visited_at"]).strftime("%d/%m/%Y %H:%M")
+                visited = datetime.fromtimestamp(entry["visited_at"]).strftime(FORMATO_DATA_HISTORICO)
             except (TypeError, ValueError, OSError):
                 visited = ""
-            label = f"{title}\n{entry['url']}"
+            label = TEXTO_UI["history_entry_format"].format(
+                title=title,
+                url=entry["url"],
+            )
             if visited:
-                label = f"{label}  ·  {visited}"
+                label = TEXTO_UI["history_entry_date_format"].format(
+                    entry=label,
+                    date=visited,
+                )
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, entry["url"])
             item.setData(Qt.ItemDataRole.UserRole + 1, entry["id"])
@@ -105,8 +113,8 @@ class HistoryDialog(QDialog):
     def _clear_all(self, *_):
         answer = QMessageBox.question(
             self,
-            "Limpar histórico",
-            "Remover todo o histórico salvo neste computador?",
+            TEXTO_UI["confirm_clear_title"],
+            TEXTO_UI["confirm_clear_message"],
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -123,14 +131,14 @@ class FavoritesDialog(QDialog):
     def __init__(self, storage, parent=None):
         super().__init__(parent)
         self.storage = storage
-        self.setWindowTitle("Favoritos")
+        self.setWindowTitle(TEXTO_UI["favorites"])
         self.resize(LARGURA_DIALOGO_PADRAO, ALTURA_DIALOGO_PADRAO)
         self.setStyleSheet(ESTILO_DIALOGO_ESCURO + ESTILO_LIST_WIDGET)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Pesquisar nos favoritos"))
+        layout.addWidget(QLabel(TEXTO_UI["favorites_search_label"]))
         self.search_field = QLineEdit(self)
-        self.search_field.setPlaceholderText("Nome ou endereço")
+        self.search_field.setPlaceholderText(TEXTO_UI["favorites_search_placeholder"])
         self.search_field.textChanged.connect(self._refresh)
         layout.addWidget(self.search_field)
 
@@ -139,9 +147,9 @@ class FavoritesDialog(QDialog):
         layout.addWidget(self.entries)
 
         buttons = QHBoxLayout()
-        self.open_button = QPushButton("Abrir em nova aba", self)
-        self.remove_button = QPushButton("Remover favorito", self)
-        self.close_button = QPushButton("Fechar", self)
+        self.open_button = QPushButton(TEXTO_UI["favorite_open"], self)
+        self.remove_button = QPushButton(TEXTO_UI["favorite_remove"], self)
+        self.close_button = QPushButton(TEXTO_UI["close"], self)
         self.open_button.clicked.connect(self._open_selected)
         self.remove_button.clicked.connect(self._remove_selected)
         self.close_button.clicked.connect(self.close)
@@ -156,7 +164,12 @@ class FavoritesDialog(QDialog):
         self.entries.clear()
         for entry in self.storage.get_favorites(self.search_field.text()):
             title = entry["title"] or entry["url"]
-            item = QListWidgetItem(f"{title}\n{entry['url']}")
+            item = QListWidgetItem(
+                TEXTO_UI["favorite_entry_format"].format(
+                    title=title,
+                    url=entry["url"],
+                )
+            )
             item.setData(Qt.ItemDataRole.UserRole, entry["url"])
             item.setToolTip(entry["url"])
             self.entries.addItem(item)

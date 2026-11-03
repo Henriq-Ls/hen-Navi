@@ -101,6 +101,11 @@ ARQUIVO_LOCK = "hen-nave.lock"
 NOME_PERFIL_WEB = "hen-nave"
 SEGUNDOS_DEDUP_HISTORICO = 5
 LIMITE_RECENTES_INICIO = 8
+LIMITE_HISTORICO_DIALOGO = 1000
+STATUS_CURTO_MS = 3000
+STATUS_DOWNLOAD_INICIO_MS = 5000
+STATUS_CARREGAMENTO_MS = 3500
+STATUS_DOWNLOAD_MS = 8000
 ZOOM_INICIAL = 1.0
 ZOOM_MINIMO = 0.5
 ZOOM_MAXIMO = 3.0
@@ -437,3 +442,87 @@ QProgressBar::chunk {{
 ESTILO_NAVEGADOR_EXTRA = _estilo_navegador_extra()
 ESTILO_NAVEGADOR_ANONIMO = _estilo_navegador_anonimo()
 CSS_PAGINA_INICIAL = _css_pagina_inicial()
+
+IDIOMA_UI = "pt-BR"
+FORMATO_DATA_HISTORICO = "%d/%m/%Y %H:%M"
+TEXTO_UI = {
+    "browser_name": "hen-Nave",
+    "home_title": "hen-Nave — Início",
+    "brand_initial": "h",
+    "home_subtitle": "O que você quer descobrir hoje?",
+    "home_search_placeholder": "Pesquisar ou digitar um endereço",
+    "search": "Pesquisar",
+    "favorites": "Favoritos",
+    "favorites_empty": "Seus favoritos aparecerão aqui.",
+    "recent": "Visitados recentemente",
+    "recent_empty": "As páginas que você visitar aparecerão aqui.",
+    "private_heading": "Navegação anônima",
+    "home_footer": "hen-Nave · Navegação simples e local",
+    "main_tab": "Principal",
+    "new_tab": "Nova aba",
+    "navigation_toolbar": "Navegação",
+    "new_tab_button": "+",
+    "menu_symbol": "☰",
+    "favorite_empty_symbol": "☆",
+    "favorite_active_symbol": "★",
+    "wait": "Aguarde...",
+    "confirm": "Confirmar",
+    "cancel": "Cancelar",
+    "already_open_title": "Já está aberto",
+    "already_open_message": "O aplicativo já está em execução.",
+    "back": "Voltar",
+    "forward": "Avançar",
+    "reload": "Recarregar",
+    "home": "Início",
+    "new_tab_tooltip": "Nova aba",
+    "address_placeholder": "Pesquisar ou digitar um endereço",
+    "favorite_add": "Adicionar aos favoritos",
+    "favorite_remove": "Remover dos favoritos",
+    "private_short": "Anônima",
+    "menu_tooltip": "Menu",
+    "ready": "Pronto",
+    "history": "Histórico",
+    "new_window": "Nova janela",
+    "private_window": "Nova janela anônima",
+    "find": "Localizar",
+    "zoom_in": "Aumentar zoom",
+    "zoom_out": "Diminuir zoom",
+    "zoom_default": "Zoom padrão",
+    "clear_history": "Limpar histórico",
+    "about": "Sobre",
+    "close_tab": "Fechar aba",
+    "focus_address": "Focar endereço",
+    "favorite_toggle": "Adicionar/remover favorito",
+    "find_placeholder": "Localizar nesta página",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "close": "Fechar",
+    "private_suffix": " — Anônima",
+    "load_success": "Concluído",
+    "load_failure": "Não foi possível carregar a página",
+    "loading_prefix": "Carregando…",
+    "download_dialog": "Salvar download",
+    "download_filter": "Todos os arquivos (*)",
+    "download_default_name": "download",
+    "download_started": "Baixando: {name}",
+    "download_completed": "Download concluído: {name}",
+    "download_cancelled": "Download cancelado ou interrompido",
+    "favorite_added": "Favorito adicionado",
+    "favorite_removed": "Favorito removido",
+    "history_cleared": "Histórico removido",
+    "about_title": "Sobre o hen-Nave",
+    "about_message": "hen-Nave {version}\n\nNavegador desktop em Python, PySide6 e QtWebEngine.",
+    "confirm_clear_title": "Limpar histórico",
+    "confirm_clear_message": "Remover todo o histórico salvo neste computador?",
+    "history_search_label": "Pesquisar no histórico",
+    "history_search_placeholder": "Título ou endereço",
+    "history_open": "Abrir em nova aba",
+    "history_remove": "Remover selecionado",
+    "favorites_search_label": "Pesquisar nos favoritos",
+    "favorites_search_placeholder": "Nome ou endereço",
+    "favorite_open": "Abrir em nova aba",
+    "favorite_remove": "Remover favorito",
+    "history_entry_format": "{title}\n{url}",
+    "history_entry_date_format": "{entry}  ·  {date}",
+    "favorite_entry_format": "{title}\n{url}",
+}

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from urllib.parse import urlencode
 
 from _CONFIGURA_ import (
     ARQUIVO_BANCO,
     ARQUIVO_INICIO,
     ARQUIVO_INICIO_ANONIMO,
+    STATUS_CARREGAMENTO_MS,
+    STATUS_CURTO_MS,
+    STATUS_DOWNLOAD_MS,
     ATALHO_ENDERECO,
     ATALHO_FAVORITO,
     ATALHO_FAVORITOS,
@@ -30,6 +32,9 @@ from _CONFIGURA_ import (
     LARGURA_ENDERECO_MINIMA,
     LIMITE_RECENTES_INICIO,
     NOME_PERFIL_WEB,
+    TEXTO_UI,
+    TITULO_APP,
+    VERSAO_APP,
     ZOOM_INCREMENTO,
     ZOOM_INICIAL,
     ZOOM_MAXIMO,
@@ -65,7 +70,26 @@ from PySide6.QtWebEngineCore import (
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from _APP_.Navegador import BrowserTabs
-from _ULTILIDADES_.icones import icone
+from _ULTILIDADES_.icones import (
+    ico_anonimo,
+    ico_atualizar,
+    ico_avancar,
+    ico_endereco,
+    ico_favorito,
+    ico_favoritos,
+    ico_fechar_aba,
+    ico_home,
+    ico_historico,
+    ico_info,
+    ico_janela,
+    ico_limpar,
+    ico_localizar,
+    ico_nova_aba,
+    ico_voltar,
+    ico_zoom_mais,
+    ico_zoom_menos,
+    ico_zoom_redefinir,
+)
 from dialogs import FavoritesDialog, HistoryDialog
 from startpage import generate_start_page
 from storage import BrowserStorage
@@ -82,7 +106,7 @@ def register_custom_url_scheme():
         return
     scheme_name = ESQUEMA_INTERNO.encode("ascii")
     existing = QWebEngineUrlScheme.schemeByName(scheme_name)
-    if existing.schemeName():
+    if existing.name():
         _SCHEME_REGISTERED = True
         return
     scheme = QWebEngineUrlScheme(scheme_name)
@@ -147,20 +171,22 @@ class BrowserPage(QWebEnginePage):
         self.fullScreenRequested.connect(browser_window._on_fullscreen_requested)
 
     def acceptNavigationRequest(self, url: QUrl, navigation_type, is_main_frame: bool) -> bool:
-        if not is_main_frame:
-            return True
-
         scheme = url.scheme().lower()
+        if scheme == "file":
+            if not is_main_frame:
+                return False
+            requested_path = os.path.realpath(url.toLocalFile())
+            return requested_path == self.home_file_path
+
         if scheme == ESQUEMA_INTERNO:
-            if not self.is_start_page_active:
+            if not is_main_frame or not self.is_start_page_active:
                 return False
             query = QUrlQuery(url).queryItemValue("q")
             self.browser_window._search_from_home(query, self.home_locked)
             return False
 
-        if scheme == "file":
-            requested_path = os.path.realpath(url.toLocalFile())
-            return requested_path == self.home_file_path
+        if not is_main_frame:
+            return True
 
         if scheme in {"http", "https"}:
             target = url.toString()
@@ -358,12 +384,15 @@ class BrowserController(QObject):
         if not downloads_dir:
             downloads_dir = str(Path.home())
         Path(downloads_dir).mkdir(parents=True, exist_ok=True)
-        suggested = os.path.basename(download.suggestedFileName()) or "download"
+        suggested = (
+            os.path.basename(download.suggestedFileName())
+            or TEXTO_UI["download_default_name"]
+        )
         target, _selected_filter = QFileDialog.getSaveFileName(
             window,
-            "Salvar download",
+            TEXTO_UI["download_dialog"],
             os.path.join(downloads_dir, suggested),
-            "Todos os arquivos (*)",
+            TEXTO_UI["download_filter"],
         )
         if not target:
             download.cancel()
@@ -376,7 +405,10 @@ class BrowserController(QObject):
         self._download_profiles[id(download)] = profile
         download.stateChanged.connect(self._on_download_state_changed)
         download.accept()
-        window.statusBar().showMessage(f"Baixando: {target_path.name}", 5000)
+        window.statusBar().showMessage(
+            TEXTO_UI["download_started"].format(name=target_path.name),
+            STATUS_DOWNLOAD_INICIO_MS,
+        )
 
     def _on_download_state_changed(self, *_):
         download = self.sender()
@@ -385,7 +417,8 @@ class BrowserController(QObject):
         state = download.state()
         completed = QWebEngineDownloadRequest.DownloadState.DownloadCompleted
         cancelled = QWebEngineDownloadRequest.DownloadState.DownloadCancelled
-        if state not in {completed, cancelled}:
+        interrupted = QWebEngineDownloadRequest.DownloadState.DownloadInterrupted
+        if state not in {completed, cancelled, interrupted}:
             return
 
         profile = self._download_profiles.pop(id(download), None)
@@ -393,10 +426,12 @@ class BrowserController(QObject):
         window = self._window_for_profile(profile) if profile is not None else None
         if window:
             if state == completed:
-                message = f"Download concluído: {download.downloadFileName()}"
+                message = TEXTO_UI["download_completed"].format(
+                    name=download.downloadFileName()
+                )
             else:
-                message = "Download cancelado ou interrompido"
-            window.statusBar().showMessage(message, 8000)
+                message = TEXTO_UI["download_cancelled"]
+            window.statusBar().showMessage(message, STATUS_DOWNLOAD_MS)
 
     def _shutdown(self):
         self._shutting_down = True
@@ -423,6 +458,7 @@ class BrowserWindow(QMainWindow):
         self._closing = False
         self._initializing = True
         self._fullscreen_active = False
+        self._window_state_before_fullscreen = Qt.WindowState.WindowNoState
         self._dialogs: list[QWidget] = []
         self.setProperty("privateMode", "true" if private else "false")
         if private:
@@ -445,22 +481,23 @@ class BrowserWindow(QMainWindow):
         self._update_location_and_favorite()
 
     def _build_interface(self):
-        self.toolbar = QToolBar("Navegação", self)
+        self.toolbar = QToolBar(TEXTO_UI["navigation_toolbar"], self)
         self.toolbar.setObjectName("navigationToolbar")
         self.toolbar.setMovable(False)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.addToolBar(self.toolbar)
 
-        self.back_action = self._make_action("Voltar", "fa5s.arrow-left", self.go_back)
-        self.forward_action = self._make_action("Avançar", "fa5s.arrow-right", self.go_forward)
+        self.back_action = self._make_action(TEXTO_UI["back"], ico_voltar(), self.go_back)
+        self.forward_action = self._make_action(TEXTO_UI["forward"], ico_avancar(), self.go_forward)
         self.reload_action = self._make_action(
-            "Recarregar",
-            "fa5s.sync-alt",
+            TEXTO_UI["reload"],
+            ico_atualizar(),
             self.reload_current,
             ATALHO_RECARREGAR,
         )
         self.home_action = self._make_action(
-            "Início",
-            "fa5s.home",
+            TEXTO_UI["home"],
+            ico_home(),
             self.go_home,
             ATALHO_HOME,
         )
@@ -473,14 +510,14 @@ class BrowserWindow(QMainWindow):
             self.toolbar.addAction(action)
 
         self.new_tab_button = QToolButton(self)
-        self.new_tab_button.setText("+")
-        self.new_tab_button.setToolTip("Nova aba")
+        self.new_tab_button.setText(TEXTO_UI["new_tab_button"])
+        self.new_tab_button.setToolTip(TEXTO_UI["new_tab_tooltip"])
         self.new_tab_button.clicked.connect(self.new_home_tab)
         self.toolbar.addWidget(self.new_tab_button)
 
         self.address_bar = QLineEdit(self)
         self.address_bar.setObjectName("addressBar")
-        self.address_bar.setPlaceholderText("Pesquisar ou digitar um endereço")
+        self.address_bar.setPlaceholderText(TEXTO_UI["address_placeholder"])
         self.address_bar.setMinimumWidth(LARGURA_ENDERECO_MINIMA)
         self.address_bar.setClearButtonEnabled(True)
         self.address_bar.returnPressed.connect(self.navigate_address)
@@ -488,21 +525,21 @@ class BrowserWindow(QMainWindow):
 
         self.favorite_button = QToolButton(self)
         self.favorite_button.setObjectName("favoriteButton")
-        self.favorite_button.setText("☆")
-        self.favorite_button.setToolTip("Adicionar aos favoritos")
+        self.favorite_button.setText(TEXTO_UI["favorite_empty_symbol"])
+        self.favorite_button.setToolTip(TEXTO_UI["favorite_add"])
         self.favorite_button.clicked.connect(self.toggle_favorite)
         self.toolbar.addWidget(self.favorite_button)
 
         if self.private:
             self.private_indicator = QToolButton(self)
             self.private_indicator.setObjectName("privateIndicator")
-            self.private_indicator.setText("Anônima")
+            self.private_indicator.setText(TEXTO_UI["private_short"])
             self.private_indicator.setEnabled(False)
             self.toolbar.addWidget(self.private_indicator)
 
         self.menu_button = QToolButton(self)
-        self.menu_button.setText("☰")
-        self.menu_button.setToolTip("Menu")
+        self.menu_button.setText(TEXTO_UI["menu_symbol"])
+        self.menu_button.setToolTip(TEXTO_UI["menu_tooltip"])
         self.menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.menu_button.setMenu(self._build_menu())
         self.toolbar.addWidget(self.menu_button)
@@ -520,10 +557,10 @@ class BrowserWindow(QMainWindow):
         layout.addWidget(self._build_find_bar())
         self.setCentralWidget(central)
         self.find_bar.hide()
-        self.statusBar().showMessage("Pronto")
+        self.statusBar().showMessage(TEXTO_UI["ready"])
 
-    def _make_action(self, label, icon_name, callback, shortcut=None):
-        action = QAction(icone(icon_name), label, self)
+    def _make_action(self, label, icon, callback, shortcut=None):
+        action = QAction(icon, label, self)
         action.triggered.connect(callback)
         if shortcut:
             action.setShortcut(QKeySequence(shortcut))
@@ -533,61 +570,61 @@ class BrowserWindow(QMainWindow):
     def _build_menu(self) -> QMenu:
         menu = QMenu(self)
         self.history_action = self._make_action(
-            "Histórico",
-            "fa5s.history",
+            TEXTO_UI["history"],
+            ico_historico(),
             self.open_history,
             ATALHO_HISTORICO,
         )
         self.history_action.setEnabled(not self.private)
         self.favorites_action = self._make_action(
-            "Favoritos",
-            "fa5s.star",
+            TEXTO_UI["favorites"],
+            ico_favoritos(),
             self.open_favorites,
             ATALHO_FAVORITOS,
         )
         self.new_window_action = self._make_action(
-            "Nova janela",
-            "fa5s.window-maximize",
+            TEXTO_UI["new_window"],
+            ico_janela(),
             self.open_new_window,
             ATALHO_NOVA_JANELA,
         )
         self.private_window_action = self._make_action(
-            "Nova janela anônima",
-            "fa5s.user-secret",
+            TEXTO_UI["private_window"],
+            ico_anonimo(),
             self.open_private_window,
             ATALHO_JANELA_ANONIMA,
         )
         self.find_action = self._make_action(
-            "Localizar",
-            "fa5s.search",
+            TEXTO_UI["find"],
+            ico_localizar(),
             self.show_find_bar,
             ATALHO_LOCALIZAR,
         )
         self.zoom_in_action = self._make_action(
-            "Aumentar zoom",
-            "fa5s.search-plus",
+            TEXTO_UI["zoom_in"],
+            ico_zoom_mais(),
             self.zoom_in,
             ATALHO_ZOOM_MAIS,
         )
         self.zoom_out_action = self._make_action(
-            "Diminuir zoom",
-            "fa5s.search-minus",
+            TEXTO_UI["zoom_out"],
+            ico_zoom_menos(),
             self.zoom_out,
             ATALHO_ZOOM_MENOS,
         )
         self.zoom_reset_action = self._make_action(
-            "Zoom padrão",
-            "fa5s.undo",
+            TEXTO_UI["zoom_default"],
+            ico_zoom_redefinir(),
             self.zoom_reset,
             ATALHO_ZOOM_RESET,
         )
         self.clear_history_action = self._make_action(
-            "Limpar histórico",
-            "fa5s.trash-alt",
+            TEXTO_UI["clear_history"],
+            ico_limpar(),
             self.clear_history,
         )
         self.clear_history_action.setEnabled(not self.private)
-        self.about_action = self._make_action("Sobre", "fa5s.info-circle", self.show_about)
+        self.about_action = self._make_action(TEXTO_UI["about"], ico_info(), self.show_about)
 
         for action in (
             self.history_action,
@@ -607,39 +644,39 @@ class BrowserWindow(QMainWindow):
         menu.addAction(self.about_action)
 
         self.new_tab_action = self._make_action(
-            "Nova aba",
-            "fa5s.plus",
+            TEXTO_UI["new_tab"],
+            ico_nova_aba(),
             self.new_home_tab,
             ATALHO_NOVA_ABA,
         )
         self.close_tab_action = self._make_action(
-            "Fechar aba",
-            "fa5s.times",
+            TEXTO_UI["close_tab"],
+            ico_fechar_aba(),
             self.close_current_tab,
             ATALHO_FECHAR_ABA,
         )
         self.address_action = self._make_action(
-            "Focar endereço",
-            "fa5s.search",
+            TEXTO_UI["focus_address"],
+            ico_endereco(),
             self.focus_address,
             ATALHO_ENDERECO,
         )
         self.favorite_action = self._make_action(
-            "Adicionar/remover favorito",
-            "fa5s.star",
+            TEXTO_UI["favorite_toggle"],
+            ico_favorito(),
             self.toggle_favorite,
             ATALHO_FAVORITO,
         )
-        self.toolbar.addAction(self.new_tab_action)
-        self.toolbar.addAction(self.close_tab_action)
-        self.toolbar.addAction(self.address_action)
-        self.toolbar.addAction(self.favorite_action)
+        self.addAction(self.new_tab_action)
+        self.addAction(self.close_tab_action)
+        self.addAction(self.address_action)
+        self.addAction(self.favorite_action)
         return menu
 
     def _build_corner_button(self):
         button = QToolButton(self)
-        button.setText("+")
-        button.setToolTip("Nova aba")
+        button.setText(TEXTO_UI["new_tab_button"])
+        button.setToolTip(TEXTO_UI["new_tab_tooltip"])
         button.clicked.connect(self.new_home_tab)
         return button
 
@@ -649,12 +686,12 @@ class BrowserWindow(QMainWindow):
         layout = QHBoxLayout(self.find_bar)
         layout.setContentsMargins(8, 4, 8, 4)
         self.find_input = QLineEdit(self.find_bar)
-        self.find_input.setPlaceholderText("Localizar nesta página")
+        self.find_input.setPlaceholderText(TEXTO_UI["find_placeholder"])
         self.find_input.returnPressed.connect(self.find_next)
         layout.addWidget(self.find_input, 1)
-        previous_button = QPushButton("Anterior", self.find_bar)
-        next_button = QPushButton("Próximo", self.find_bar)
-        close_button = QPushButton("Fechar", self.find_bar)
+        previous_button = QPushButton(TEXTO_UI["previous"], self.find_bar)
+        next_button = QPushButton(TEXTO_UI["next"], self.find_bar)
+        close_button = QPushButton(TEXTO_UI["close"], self.find_bar)
         previous_button.clicked.connect(self.find_previous)
         next_button.clicked.connect(self.find_next)
         close_button.clicked.connect(self.hide_find_bar)
@@ -695,7 +732,7 @@ class BrowserWindow(QMainWindow):
         if self.profile_lease:
             self.profile_lease.register_view(view)
 
-        label = "Principal" if primary else "Nova aba"
+        label = TEXTO_UI["main_tab"] if primary else TEXTO_UI["new_tab"]
         index = self.tabs.insertTab(0 if primary else self.tabs.count(), view, label)
         if primary:
             bar = self.tabs.tabBar()
@@ -745,6 +782,8 @@ class BrowserWindow(QMainWindow):
             select=True,
             popup=True,
         )
+        if not self.private:
+            self.controller.notify_session_change()
         return page
 
     def _search_from_home(self, query: str, home_locked: bool):
@@ -864,7 +903,7 @@ class BrowserWindow(QMainWindow):
             return
         page = view.page()
         if index == 0:
-            label = "Principal"
+            label = TEXTO_UI["main_tab"]
         else:
             label = (title or "").strip() or self._host_label(view.url())
         self.tabs.setTabText(index, label)
@@ -881,7 +920,10 @@ class BrowserWindow(QMainWindow):
     def _on_load_progress(self, progress: int):
         view = self.sender()
         if view is self._current_view() and progress < 100:
-            self.statusBar().showMessage(f"Carregando… {progress}%")
+            self.statusBar().showMessage(
+                f"{TEXTO_UI['loading_prefix']} {progress}%",
+                STATUS_CARREGAMENTO_MS,
+            )
 
     def _on_load_finished(self, success: bool):
         view = self.sender()
@@ -902,7 +944,12 @@ class BrowserWindow(QMainWindow):
             self.controller.storage.record_visit(url, view.title())
             self.controller.refresh_home_pages()
         if view is self._current_view():
-            self.statusBar().showMessage("Concluído" if success else "Não foi possível carregar a página", 3500)
+            message = (
+                TEXTO_UI["load_success"]
+                if success
+                else TEXTO_UI["load_failure"]
+            )
+            self.statusBar().showMessage(message, STATUS_CARREGAMENTO_MS)
         if not self.private:
             self.controller.notify_session_change()
         self._update_location_and_favorite()
@@ -913,9 +960,9 @@ class BrowserWindow(QMainWindow):
         if index < 0:
             return
         if index == 0:
-            label = "Principal"
+            label = TEXTO_UI["main_tab"]
         elif view.page().url().scheme() == "file":
-            label = "Nova aba"
+            label = TEXTO_UI["new_tab"]
         else:
             label = view.title() or self._host_label(view.url())
         self.tabs.setTabText(index, label)
@@ -924,7 +971,7 @@ class BrowserWindow(QMainWindow):
     @staticmethod
     def _host_label(url: QUrl) -> str:
         host = url.host()
-        return host or "Nova aba"
+        return host or TEXTO_UI["new_tab"]
 
     def _update_location_and_favorite(self):
         view = self._current_view()
@@ -935,9 +982,15 @@ class BrowserWindow(QMainWindow):
         self.address_bar.setText(url if is_web else "")
         self.favorite_button.setEnabled(is_web)
         favorite = is_web and self.controller.storage.is_favorite(url)
-        self.favorite_button.setText("★" if favorite else "☆")
+        self.favorite_button.setText(
+            TEXTO_UI["favorite_active_symbol"]
+            if favorite
+            else TEXTO_UI["favorite_empty_symbol"]
+        )
         self.favorite_button.setToolTip(
-            "Remover dos favoritos" if favorite else "Adicionar aos favoritos"
+            TEXTO_UI["favorite_remove"]
+            if favorite
+            else TEXTO_UI["favorite_add"]
         )
 
     def _update_navigation_actions(self):
@@ -954,10 +1007,16 @@ class BrowserWindow(QMainWindow):
             return
         if self.controller.storage.is_favorite(url):
             self.controller.storage.remove_favorite(url)
-            self.statusBar().showMessage("Favorito removido", 3000)
+            self.statusBar().showMessage(
+                TEXTO_UI["favorite_removed"],
+                STATUS_CURTO_MS,
+            )
         else:
             self.controller.storage.add_favorite(url, view.title() or self._host_label(view.url()))
-            self.statusBar().showMessage("Favorito adicionado", 3000)
+            self.statusBar().showMessage(
+                TEXTO_UI["favorite_added"],
+                STATUS_CURTO_MS,
+            )
         self.controller.refresh_home_pages()
         self._update_location_and_favorite()
 
@@ -998,22 +1057,24 @@ class BrowserWindow(QMainWindow):
             return
         answer = QMessageBox.question(
             self,
-            "Limpar histórico",
-            "Remover todo o histórico salvo neste computador?",
+            TEXTO_UI["confirm_clear_title"],
+            TEXTO_UI["confirm_clear_message"],
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
         if answer == QMessageBox.StandardButton.Yes:
             self.controller.storage.clear_history()
             self.controller.refresh_home_pages()
-            self.statusBar().showMessage("Histórico removido", 3000)
+            self.statusBar().showMessage(
+                TEXTO_UI["history_cleared"],
+                STATUS_CURTO_MS,
+            )
 
     def show_about(self, *_):
         QMessageBox.about(
             self,
-            "Sobre o hen-Nave",
-            "hen-Nave v0.1.0\n\n"
-            "Navegador desktop em Python, PySide6 e QtWebEngine.",
+            TEXTO_UI["about_title"],
+            TEXTO_UI["about_message"].format(version=VERSAO_APP),
         )
 
     def show_find_bar(self, *_):
@@ -1063,6 +1124,7 @@ class BrowserWindow(QMainWindow):
         if request.toggleOn():
             request.accept()
             self._fullscreen_active = True
+            self._window_state_before_fullscreen = self.windowState()
             self.toolbar.hide()
             self.tabs.tabBar().hide()
             self.statusBar().hide()
@@ -1070,7 +1132,10 @@ class BrowserWindow(QMainWindow):
             return
         request.accept()
         self._fullscreen_active = False
-        self.showNormal()
+        if self._window_state_before_fullscreen & Qt.WindowState.WindowMaximized:
+            self.showMaximized()
+        else:
+            self.showNormal()
         self.toolbar.show()
         self.tabs.tabBar().show()
         self.statusBar().show()

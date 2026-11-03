@@ -8,7 +8,7 @@ Nenhum módulo deve montar caminhos de AppData na mão — todos consultam esta 
 Uso:
     from _APPDATA_ import appdata
     appdata.inicializar()
-    print(appdata.pasta_raiz)
+    raiz = appdata.pasta_raiz
 """
 
 import os

@@ -9,7 +9,9 @@ from _CONFIGURA_ import (
     CORES_DOMINIO,
     CSS_PAGINA_INICIAL,
     ESQUEMA_INTERNO,
+    IDIOMA_UI,
     TEXTO_AVISO_ANONIMO,
+    TEXTO_UI,
 )
 from utils import is_http_url
 
@@ -39,7 +41,8 @@ def _card(item: dict, index: int) -> str:
     url = str(item["url"])
     domain = _domain_for(url)
     title = str(item.get("title") or domain)
-    color = CORES_DOMINIO[index % len(CORES_DOMINIO)]
+    color_index = sum(ord(character) for character in domain.lower()) % len(CORES_DOMINIO)
+    color = CORES_DOMINIO[color_index]
     initial = html.escape((domain[:1] or "?").upper())
     safe_title = html.escape(title, quote=True)
     safe_domain = html.escape(domain, quote=True)
@@ -67,50 +70,50 @@ def generate_start_page(
     favorite_section = (
         f'<div class="grid">{favorite_cards}</div>'
         if favorite_cards
-        else '<div class="empty">Seus favoritos aparecerão aqui.</div>'
+        else f'<div class="empty">{html.escape(TEXTO_UI["favorites_empty"])}</div>'
     )
     recent_section = (
         f'<div class="grid">{recent_cards}</div>'
         if recent_cards
-        else '<div class="empty">As páginas que você visitar aparecerão aqui.</div>'
+        else f'<div class="empty">{html.escape(TEXTO_UI["recent_empty"])}</div>'
     )
     private_notice = (
-        f'<aside class="private-notice"><strong>Navegação anônima</strong>'
+        f'<aside class="private-notice"><strong>{html.escape(TEXTO_UI["private_heading"])}</strong>'
         f'{html.escape(TEXTO_AVISO_ANONIMO)}</aside>'
         if private
         else ""
     )
 
     return f"""<!doctype html>
-<html lang="pt-BR">
+<html lang="{html.escape(IDIOMA_UI, quote=True)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>hen-Nave — Início</title>
+  <title>{html.escape(TEXTO_UI["home_title"], quote=True)}</title>
   <style>{CSS_PAGINA_INICIAL}</style>
 </head>
 <body>
   <main>
     <header class="brand">
-      <div class="brand-mark" aria-hidden="true">h</div>
-      <h1>hen-Nave</h1>
-      <p class="subtitle">O que você quer descobrir hoje?</p>
+      <div class="brand-mark" aria-hidden="true">{html.escape(TEXTO_UI["brand_initial"])}</div>
+      <h1>{html.escape(TEXTO_UI["browser_name"])}</h1>
+      <p class="subtitle">{html.escape(TEXTO_UI["home_subtitle"])}</p>
     </header>
     <form class="search" action="{ESQUEMA_INTERNO}://search" method="get">
-      <input type="search" name="q" placeholder="Pesquisar ou digitar um endereço"
-             aria-label="Pesquisar ou digitar um endereço" autofocus>
-      <button type="submit">Pesquisar</button>
+      <input type="search" name="q" placeholder="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}"
+             aria-label="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}" autofocus>
+      <button type="submit">{html.escape(TEXTO_UI["search"])}</button>
     </form>
     {private_notice}
     <section aria-labelledby="favorites-heading">
-      <h2 class="section-title" id="favorites-heading">Favoritos</h2>
+      <h2 class="section-title" id="favorites-heading">{html.escape(TEXTO_UI["favorites"])}</h2>
       {favorite_section}
     </section>
     <section aria-labelledby="recent-heading">
-      <h2 class="section-title" id="recent-heading">Visitados recentemente</h2>
+      <h2 class="section-title" id="recent-heading">{html.escape(TEXTO_UI["recent"])}</h2>
       {recent_section}
     </section>
-    <footer>hen-Nave · Navegação simples e local</footer>
+    <footer>{html.escape(TEXTO_UI["home_footer"])}</footer>
   </main>
 </body>
 </html>

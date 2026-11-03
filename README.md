@@ -76,8 +76,7 @@ python main.py
 
 O Chromium embutido é atualizado junto com o PySide6. Atualize a dependência
 periodicamente com `python -m pip install -U PySide6`; para repetir a instalação
-com o conjunto de dependências do projeto, use `python -m pip install -U -r
-requirements.txt`.
+com o conjunto de dependências do projeto, use `python -m pip install -U -r requirements.txt`.
 
 ## Dados locais
 

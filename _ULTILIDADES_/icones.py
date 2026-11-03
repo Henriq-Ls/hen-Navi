@@ -15,7 +15,7 @@ Referência de ícones: https://fontawesome.com/icons (prefixo fa5s, fa5r, fa5b,
 """
 
 from PySide6.QtGui import QIcon, QColor
-from _CONFIGURA_ import COR_TEXTO, COR_ACENTO, COR_PERIGO, COR_SUCESSO
+from _CONFIGURA_ import AMARELO, COR_TEXTO, COR_ACENTO, COR_PERIGO, COR_SUCESSO
 
 
 def icone(nome: str, cor: str = COR_TEXTO) -> QIcon:
@@ -55,3 +55,21 @@ def ico_atualizar() -> QIcon: return icone("fa5s.sync-alt",     COR_TEXTO)
 def ico_buscar()    -> QIcon: return icone("fa5s.search",       COR_TEXTO)
 def ico_lixo()      -> QIcon: return icone("fa5s.trash-alt",    COR_PERIGO)
 def ico_adicionar() -> QIcon: return icone("fa5s.plus",         COR_SUCESSO)
+
+
+def ico_voltar() -> QIcon: return icone("fa5s.arrow-left", COR_TEXTO)
+def ico_avancar() -> QIcon: return icone("fa5s.arrow-right", COR_TEXTO)
+def ico_home() -> QIcon: return icone("fa5s.home", COR_TEXTO)
+def ico_historico() -> QIcon: return icone("fa5s.history", COR_TEXTO)
+def ico_favoritos() -> QIcon: return icone("fa5s.star", COR_TEXTO)
+def ico_janela() -> QIcon: return icone("fa5s.window-maximize", COR_TEXTO)
+def ico_anonimo() -> QIcon: return icone("fa5s.user-secret", COR_TEXTO)
+def ico_localizar() -> QIcon: return icone("fa5s.search", COR_TEXTO)
+def ico_zoom_mais() -> QIcon: return icone("fa5s.search-plus", COR_TEXTO)
+def ico_zoom_menos() -> QIcon: return icone("fa5s.search-minus", COR_TEXTO)
+def ico_zoom_redefinir() -> QIcon: return icone("fa5s.undo", COR_TEXTO)
+def ico_limpar() -> QIcon: return icone("fa5s.trash-alt", COR_PERIGO)
+def ico_nova_aba() -> QIcon: return icone("fa5s.plus", COR_SUCESSO)
+def ico_fechar_aba() -> QIcon: return icone("fa5s.times", COR_TEXTO)
+def ico_endereco() -> QIcon: return icone("fa5s.search-location", COR_TEXTO)
+def ico_favorito() -> QIcon: return icone("fa5s.star", AMARELO)

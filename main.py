@@ -20,8 +20,8 @@ if _DIR not in sys.path:
     sys.path.insert(0, _DIR)
 
 # ── Exe sem console (--windowed / pythonw): stdout/stderr vêm como None ──────
-# NUNCA remova este bloco: sem ele, faulthandler.enable() e qualquer print/
-# logging/biblioteca que escreva em stdout/stderr estouram só no executável.
+# NUNCA remova este bloco: sem ele, faulthandler.enable() e qualquer biblioteca
+# que escreva em stdout/stderr podem falhar apenas no executável.
 # Redireciona para CRASH_NATIVO.log em ~/.hen-nave/logs.
 _crash_file = None
 try:
@@ -57,7 +57,7 @@ from _LOGS_ import log
 # ── AppData (cria estrutura de pastas no computador do usuário) ───────────────
 from _APPDATA_ import appdata
 appdata.inicializar()
-from _CONFIGURA_ import ARQUIVO_LOCK
+from _CONFIGURA_ import ARQUIVO_LOCK, TEXTO_UI
 
 # ── Crash handler global ──────────────────────────────────────────────────────
 def _excepthook(tipo, valor, tb):
@@ -109,8 +109,8 @@ if not _lock_file.tryLock(100):
     _app_tmp = QApplication.instance() or QApplication(sys.argv)
     QMessageBox.warning(
         None,
-        "Já está aberto",
-        "O aplicativo já está em execução."
+        TEXTO_UI["already_open_title"],
+        TEXTO_UI["already_open_message"],
     )
     sys.exit(0)
 
@@ -169,5 +169,5 @@ if __name__ == "__main__":
     except Exception:
         texto = traceback.format_exc()
         log.crash("main.py", "__main__", texto)
-        # Sem print/input: no exe sem console não existe stdout/stdin.
+        # O executável sem console não possui entrada nem saída de terminal.
         sys.exit(1)

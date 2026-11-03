@@ -16,6 +16,11 @@ class StartPageTests(unittest.TestCase):
         self.assertIn("Exemplo", page)
         self.assertEqual(page.count('href="https://example.com/"'), 2)
         self.assertIn("other.example", page)
+        example_cards = [
+            card.split('style="background:', 1)[1].split('"', 1)[0]
+            for card in page.split('href="https://example.com/"')[1:]
+        ]
+        self.assertEqual(example_cards[0], example_cards[1])
 
     def test_dynamic_html_is_escaped(self):
         page = generate_start_page(

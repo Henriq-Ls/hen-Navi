@@ -16,7 +16,7 @@ Uso:
 """
 
 from PySide6.QtWidgets import QMessageBox, QWidget
-from _CONFIGURA_ import ESTILO_DIALOGO_ESCURO, TITULO_APP
+from _CONFIGURA_ import ESTILO_DIALOGO_ESCURO, TEXTO_UI, TITULO_APP
 
 
 def _aplicar_estilo(dialogo: QMessageBox):
@@ -97,12 +97,12 @@ def popup_confirmar_perigo(
     dlg.setText(mensagem)
     dlg.setIcon(QMessageBox.Icon.Warning)
 
-    btn_sim = dlg.addButton("Confirmar", QMessageBox.ButtonRole.AcceptRole)
+    btn_sim = dlg.addButton(TEXTO_UI["confirm"], QMessageBox.ButtonRole.AcceptRole)
     btn_sim.setStyleSheet(
         f"QPushButton {{ background: {COR_PERIGO}; color: white; "
         f"border: none; padding: 6px 16px; border-radius: 4px; font-weight: bold; }}"
     )
-    dlg.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+    dlg.addButton(TEXTO_UI["cancel"], QMessageBox.ButtonRole.RejectRole)
 
     _aplicar_estilo(dlg)
     dlg.exec()

@@ -6,7 +6,7 @@ Uso:
     from _APPDATA_ import appdata
 
     appdata.inicializar()            # chamar UMA vez no main.py
-    print(appdata.pasta_raiz)        # caminho da pasta do usuário
+    raiz = appdata.pasta_raiz        # caminho da pasta do usuário
     cfg = appdata.ler_config()       # lê config.json
     appdata.salvar_config(cfg)       # salva config.json
 """

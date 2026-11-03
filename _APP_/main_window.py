@@ -13,6 +13,7 @@ from _CONFIGURA_ import (
     LARGURA_PADRAO,
     LARGURA_MIN,
     TITULO_APP,
+    TEXTO_UI,
     VERSAO_APP,
 )
 from _LOGS_ import log
@@ -42,7 +43,7 @@ class MainWindow(BrowserWindow):
             profile_lease=profile_lease,
             parent=parent,
         )
-        suffix = " — Anônima" if private else ""
+        suffix = TEXTO_UI["private_suffix"] if private else ""
         self.setWindowTitle(f"{TITULO_APP}{suffix} {VERSAO_APP}")
         self.setMinimumSize(LARGURA_MIN, ALTURA_MIN)
         self.resize(LARGURA_PADRAO, ALTURA_PADRAO)

@@ -6,7 +6,10 @@ import ipaddress
 import re
 from urllib.parse import urlencode, urlsplit
 
-from _CONFIGURA_ import URL_BUSCA
+from _CONFIGURA_ import (
+    BUSCADOR_PADRAO,
+    BUSCADORES_PESQUISA,
+)
 
 
 _LABEL_DOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.IGNORECASE)
@@ -68,12 +71,19 @@ def is_http_url(value: str) -> bool:
     return valid
 
 
-def search_url(query: str) -> str:
-    """Cria uma busca DuckDuckGo com a consulta corretamente codificada."""
-    return f"{URL_BUSCA}?{urlencode({'q': query.strip()})}"
+def search_url(query: str, search_engine: str = BUSCADOR_PADRAO) -> str:
+    """Cria uma URL de pesquisa para o buscador escolhido."""
+    try:
+        base_url = BUSCADORES_PESQUISA[search_engine][1]
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"Buscador desconhecido: {search_engine}") from error
+    return f"{base_url}?{urlencode({'q': query.strip()})}"
 
 
-def resolve_address(text: str) -> str:
+def resolve_address(
+    text: str,
+    search_engine: str = BUSCADOR_PADRAO,
+) -> str:
     """
     Converte texto em URL HTTP(S) ou em busca.
 
@@ -87,25 +97,25 @@ def resolve_address(text: str) -> str:
     try:
         parsed = urlsplit(value)
     except ValueError:
-        return search_url(value)
+        return search_url(value, search_engine)
 
     explicit_scheme = re.match(r"^[a-z][a-z0-9+.-]*://", value, re.IGNORECASE)
     if explicit_scheme:
         if parsed.scheme.lower() in {"http", "https"} and is_http_url(value):
             return value
-        return search_url(value)
+        return search_url(value, search_engine)
 
     if any(character.isspace() for character in value):
-        return search_url(value)
+        return search_url(value, search_engine)
 
     try:
         candidate = urlsplit(f"//{value}")
     except ValueError:
-        return search_url(value)
+        return search_url(value, search_engine)
 
     valid, is_local = _valid_host(candidate.hostname)
     if candidate.username is not None or not valid or not _valid_port(candidate):
-        return search_url(value)
+        return search_url(value, search_engine)
 
     scheme = "http" if is_local else "https"
     return f"{scheme}://{value}"

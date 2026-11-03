@@ -16,11 +16,7 @@ Uso:
 """
 
 from PySide6.QtWidgets import QMessageBox, QWidget
-from _CONFIGURA_ import ESTILO_DIALOGO_ESCURO, TEXTO_UI, TITULO_APP
-
-
-def _aplicar_estilo(dialogo: QMessageBox):
-    dialogo.setStyleSheet(ESTILO_DIALOGO_ESCURO)
+from _CONFIGURA_ import TEXTO_UI, TITULO_APP
 
 
 def popup_erro(titulo: str, mensagem: str, parent: QWidget = None):
@@ -30,7 +26,6 @@ def popup_erro(titulo: str, mensagem: str, parent: QWidget = None):
     dlg.setText(mensagem)
     dlg.setIcon(QMessageBox.Icon.Critical)
     dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    _aplicar_estilo(dlg)
     dlg.exec()
 
 
@@ -41,7 +36,6 @@ def popup_aviso(titulo: str, mensagem: str, parent: QWidget = None):
     dlg.setText(mensagem)
     dlg.setIcon(QMessageBox.Icon.Warning)
     dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    _aplicar_estilo(dlg)
     dlg.exec()
 
 
@@ -52,7 +46,6 @@ def popup_info(titulo: str, mensagem: str, parent: QWidget = None):
     dlg.setText(mensagem)
     dlg.setIcon(QMessageBox.Icon.Information)
     dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
-    _aplicar_estilo(dlg)
     dlg.exec()
 
 
@@ -76,7 +69,6 @@ def popup_confirmar(
     dlg.addButton(btn_cancelar, QMessageBox.ButtonRole.RejectRole)
     dlg.setDefaultButton(btn_sim)
 
-    _aplicar_estilo(dlg)
     dlg.exec()
 
     return dlg.clickedButton() == btn_sim
@@ -91,20 +83,15 @@ def popup_confirmar_perigo(
     Diálogo de confirmação para ações destrutivas (excluir, apagar, resetar).
     Botão de confirmação em vermelho.
     """
-    from _CONFIGURA_ import COR_PERIGO
     dlg = QMessageBox(parent)
     dlg.setWindowTitle(titulo)
     dlg.setText(mensagem)
     dlg.setIcon(QMessageBox.Icon.Warning)
 
     btn_sim = dlg.addButton(TEXTO_UI["confirm"], QMessageBox.ButtonRole.AcceptRole)
-    btn_sim.setStyleSheet(
-        f"QPushButton {{ background: {COR_PERIGO}; color: white; "
-        f"border: none; padding: 6px 16px; border-radius: 4px; font-weight: bold; }}"
-    )
+    btn_sim.setObjectName("dangerButton")
     dlg.addButton(TEXTO_UI["cancel"], QMessageBox.ButtonRole.RejectRole)
 
-    _aplicar_estilo(dlg)
     dlg.exec()
 
     return dlg.clickedButton() == btn_sim

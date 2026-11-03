@@ -6,15 +6,13 @@ import os
 from _CONFIGURA_ import (
     ALTURA_PADRAO,
     ALTURA_MIN,
-    ESTILO_ESCURO_GLOBAL,
-    ESTILO_NAVEGADOR_ANONIMO,
-    ESTILO_NAVEGADOR_EXTRA,
     IMAGEM_ICO,
     LARGURA_PADRAO,
     LARGURA_MIN,
     TITULO_APP,
     TEXTO_UI,
     VERSAO_APP,
+    VERSAO_ESTADO_JANELA,
 )
 from _LOGS_ import log
 from _APPDATA_ import appdata
@@ -47,10 +45,6 @@ class MainWindow(BrowserWindow):
         self.setWindowTitle(f"{TITULO_APP}{suffix} {VERSAO_APP}")
         self.setMinimumSize(LARGURA_MIN, ALTURA_MIN)
         self.resize(LARGURA_PADRAO, ALTURA_PADRAO)
-        style = ESTILO_ESCURO_GLOBAL + ESTILO_NAVEGADOR_EXTRA
-        if private:
-            style += ESTILO_NAVEGADOR_ANONIMO
-        self.setStyleSheet(style)
         if os.path.isfile(IMAGEM_ICO):
             self.setWindowIcon(QIcon(IMAGEM_ICO))
         self._restore_window_state()
@@ -64,9 +58,13 @@ class MainWindow(BrowserWindow):
             if geometry:
                 self.restoreGeometry(QByteArray.fromBase64(geometry.encode()))
             if state:
-                self.restoreState(QByteArray.fromBase64(state.encode()))
+                self.restoreState(
+                    QByteArray.fromBase64(state.encode()),
+                    VERSAO_ESTADO_JANELA,
+                )
         except (TypeError, ValueError, RuntimeError) as error:
             log.aviso("MainWindow", "_restore_window_state", str(error))
+        self._pin_window_controls_to_right()
 
     def _save_window_state(self):
         if self.private:
@@ -74,7 +72,10 @@ class MainWindow(BrowserWindow):
         try:
             state = {
                 "geometria": self.saveGeometry().toBase64().data().decode(),
-                "estado": self.saveState().toBase64().data().decode(),
+                "estado": self.saveState(VERSAO_ESTADO_JANELA)
+                .toBase64()
+                .data()
+                .decode(),
             }
             appdata.salvar_sessao(state)
         except (AttributeError, RuntimeError, ValueError) as error:

@@ -140,9 +140,9 @@ class GerenciadorAppData:
 
     def _garantir_config_padrao(self):
         if not os.path.exists(self.arq_config):
-            from _CONFIGURA_ import VERSAO_APP, TEMA_QT
+            from _CONFIGURA_ import TEMA_PADRAO, VERSAO_APP
             padrao = {
-                "tema":    TEMA_QT,
+                "tema":    TEMA_PADRAO,
                 "versao":  VERSAO_APP,
                 "criado":  datetime.datetime.now().isoformat(),
             }

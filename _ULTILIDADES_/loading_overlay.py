@@ -195,13 +195,9 @@ class LoadingOverlay(QDialog):
         layout.addWidget(self._spinner, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self._label = QLabel(mensagem, self)
+        self._label.setObjectName("loadingOverlayLabel")
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._label.setWordWrap(True)
-        self._label.setStyleSheet(
-            f"color: {cor_texto}; "
-            f"font-size: {FONTE_TAMANHO_LABEL}px; "
-            f"background: transparent;"
-        )
         layout.addWidget(self._label)
 
         self.setFixedSize(230, 148)

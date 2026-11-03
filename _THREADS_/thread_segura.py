@@ -10,7 +10,7 @@ Proteções que esta classe adiciona:
      (causa o crash "QThread: Destroyed while thread is still running")
   2. Registra a thread no ThreadManager ao iniciar
   3. Remove do ThreadManager ao terminar (sinal finished)
-  4. Protege run() com try/except que loga crashes da thread no LOG_GERAL
+  4. Envolve automaticamente run() sobrescrito, registrando exceções no LOG_GERAL
 
 Uso:
     from _THREADS_.thread_segura import ThreadSegura
@@ -26,12 +26,18 @@ Uso:
 
 from PySide6.QtCore import QThread
 
+from _THREADS_.run_guard import protect_subclass_run
+
 
 class ThreadSegura(QThread):
     """
     Base class para todas as threads do projeto.
     Herda de QThread e adiciona proteções de ciclo de vida.
     """
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        protect_subclass_run(cls)
 
     def __init__(self, nome: str = "", parent=None):
         super().__init__(parent)

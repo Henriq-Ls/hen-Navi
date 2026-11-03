@@ -6,8 +6,6 @@ from datetime import datetime
 
 from _CONFIGURA_ import (
     ALTURA_DIALOGO_PADRAO,
-    ESTILO_DIALOGO_ESCURO,
-    ESTILO_LIST_WIDGET,
     FORMATO_DATA_HISTORICO,
     LARGURA_DIALOGO_PADRAO,
     TEXTO_UI,
@@ -35,7 +33,6 @@ class HistoryDialog(QDialog):
         self.storage = storage
         self.setWindowTitle(TEXTO_UI["history"])
         self.resize(LARGURA_DIALOGO_PADRAO, ALTURA_DIALOGO_PADRAO)
-        self.setStyleSheet(ESTILO_DIALOGO_ESCURO + ESTILO_LIST_WIDGET)
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(TEXTO_UI["history_search_label"]))
@@ -133,7 +130,6 @@ class FavoritesDialog(QDialog):
         self.storage = storage
         self.setWindowTitle(TEXTO_UI["favorites"])
         self.resize(LARGURA_DIALOGO_PADRAO, ALTURA_DIALOGO_PADRAO)
-        self.setStyleSheet(ESTILO_DIALOGO_ESCURO + ESTILO_LIST_WIDGET)
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(TEXTO_UI["favorites_search_label"]))

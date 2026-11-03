@@ -24,6 +24,26 @@ class ResolveAddressTests(unittest.TestCase):
         self.assertEqual(urlsplit(target).netloc, "duckduckgo.com")
         self.assertEqual(parse_qs(urlsplit(target).query)["q"], ["gatos e cães"])
 
+    def test_search_terms_use_the_selected_engine(self):
+        expected_hosts = {
+            "duckduckgo": "duckduckgo.com",
+            "google": "www.google.com",
+            "bing": "www.bing.com",
+        }
+        for engine, expected_host in expected_hosts.items():
+            with self.subTest(engine=engine):
+                target = resolve_address("receita de pizza", engine)
+                parsed = urlsplit(target)
+                self.assertEqual(parsed.netloc, expected_host)
+                self.assertEqual(
+                    parse_qs(parsed.query)["q"],
+                    ["receita de pizza"],
+                )
+
+    def test_unknown_search_engine_fails_explicitly(self):
+        with self.assertRaises(ValueError):
+            resolve_address("texto de busca", "unknown")
+
     def test_unsafe_and_unknown_schemes_become_searches(self):
         for value in ("javascript:alert(1)", "file:///etc/passwd", "ftp://example.com"):
             with self.subTest(value=value):

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from _CONFIGURA_ import SEGUNDOS_DEDUP_HISTORICO
+from site_utils import normalize_host
 from utils import is_http_url
 
 
@@ -56,6 +57,23 @@ class BrowserStorage:
                 CREATE TABLE IF NOT EXISTS browser_session (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
                     urls_json TEXT NOT NULL
+                )
+                """
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS notes (
+                    host TEXT PRIMARY KEY,
+                    texto TEXT NOT NULL,
+                    atualizado_em REAL NOT NULL
+                )
+                """
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS site_blocking_exceptions (
+                    host TEXT PRIMARY KEY,
+                    created_at REAL NOT NULL
                 )
                 """
             )
@@ -206,6 +224,105 @@ class BrowserStorage:
         if not isinstance(value, list):
             return []
         return [url for url in value if isinstance(url, str) and is_http_url(url)]
+
+    def save_note(
+        self,
+        host: str,
+        texto: str,
+        atualizado_em: float | None = None,
+    ) -> bool:
+        site = normalize_host(host, strip_www=True)
+        if not site:
+            return False
+        content = str(texto or "")
+        with self._lock, self._connection:
+            if not content.strip():
+                self._connection.execute("DELETE FROM notes WHERE host = ?", (site,))
+                return True
+            timestamp = time.time() if atualizado_em is None else float(atualizado_em)
+            self._connection.execute(
+                """
+                INSERT INTO notes(host, texto, atualizado_em) VALUES (?, ?, ?)
+                ON CONFLICT(host) DO UPDATE SET
+                    texto = excluded.texto,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                (site, content, timestamp),
+            )
+        return True
+
+    def get_note(self, host: str) -> str:
+        site = normalize_host(host, strip_www=True)
+        if not site:
+            return ""
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT texto FROM notes WHERE host = ?",
+                (site,),
+            ).fetchone()
+        return row["texto"] if row else ""
+
+    def has_note(self, host: str) -> bool:
+        site = normalize_host(host, strip_www=True)
+        if not site:
+            return False
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT 1 FROM notes WHERE host = ?",
+                (site,),
+            ).fetchone()
+        return row is not None
+
+    def search_notes(self, search: str = "") -> list[dict[str, Any]]:
+        term = f"%{search.strip()}%"
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT host, texto, atualizado_em FROM notes
+                WHERE (? = '%%' OR host LIKE ? OR texto LIKE ?)
+                ORDER BY host COLLATE NOCASE
+                """,
+                (term, term, term),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def all_notes(self) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT host, texto, atualizado_em FROM notes
+                ORDER BY host COLLATE NOCASE
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_site_blocking_exceptions(self) -> set[str]:
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT host FROM site_blocking_exceptions"
+            ).fetchall()
+        return {row["host"] for row in rows}
+
+    def set_site_blocking_enabled(self, host: str, enabled: bool) -> bool:
+        site = normalize_host(host, strip_www=True)
+        if not site:
+            return False
+        with self._lock, self._connection:
+            if enabled:
+                self._connection.execute(
+                    "DELETE FROM site_blocking_exceptions WHERE host = ?",
+                    (site,),
+                )
+            else:
+                self._connection.execute(
+                    """
+                    INSERT INTO site_blocking_exceptions(host, created_at)
+                    VALUES (?, ?)
+                    ON CONFLICT(host) DO NOTHING
+                    """,
+                    (site, time.time()),
+                )
+        return True
 
     def close(self) -> None:
         with self._lock:

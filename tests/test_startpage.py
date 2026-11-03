@@ -4,6 +4,11 @@ from startpage import generate_start_page
 
 
 class StartPageTests(unittest.TestCase):
+    def test_renders_project_logo_on_start_page(self):
+        page = generate_start_page()
+        self.assertIn('class="brand-logo"', page)
+        self.assertIn('src="data:image/png;base64,', page)
+
     def test_renders_favorites_and_unique_recent_urls(self):
         favorite = {"url": "https://example.com/", "title": "Exemplo"}
         recent = [

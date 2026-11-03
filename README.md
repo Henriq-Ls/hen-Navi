@@ -1,147 +1,168 @@
 # hen-Nave
 
-Navegador desktop independente feito em Python, PySide6 e QtWebEngine
-(Chromium embutido). O projeto foi organizado para rodar no computador do
-usuário; o preview web da Replit não consegue exibir uma janela desktop Qt.
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![PySide6 6.8+](https://img.shields.io/badge/PySide6-6.8%2B-41CD52?logo=qt&logoColor=white)
+![SQLite](https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white)
 
-## Estrutura
+**Navegador desktop independente**, desenvolvido em Python com PySide6 e
+QtWebEngine (Chromium).
 
-```text
-hen-Navi/
-├── main.py
-├── browser.py
-├── storage.py
-├── startpage.py
-├── dialogs.py
-├── utils.py
-├── requirements.txt
-├── README.md
-├── _APP_/
-│   ├── main_window.py
-│   └── Navegador/
-│       ├── __init__.py
-│       └── abas.py
-├── _APPDATA_/
-├── _CONFIGURA_/
-├── _LOGS_/
-├── _THREADS_/
-├── _ULTILIDADES_/
-├── nucleo/
-│   └── _DOC_PROJETO.txt
-└── tests/
-    ├── test_startpage.py
-    ├── test_storage.py
-    └── test_utils.py
-```
+O hen-Nave foi feito para rodar como aplicativo no computador. Ele não é um
+site, então a janela do navegador não aparece no preview web da Replit.
 
-## Instalar e iniciar
+## Recursos
 
-Use Python 3.10 ou superior. Comandos abaixo devem ser executados nesta pasta
-do projeto.
+- Navegação HTTP(S), abas e página inicial local.
+- Histórico, favoritos, anotações e sessão persistidos em SQLite.
+- Janelas anônimas com perfil temporário.
+- Bloqueador simples de anúncios com lista local e exceções por site.
+- Capturas da área visível, página inteira e exportação em PDF.
+- Download de vídeos com análise de título, canal, duração e qualidades.
+- Temas, busca na página e atalhos de teclado.
+- Ações no rodapé para abrir a pasta de dados e limpar o cache.
+
+## Requisitos
+
+- Python 3.10 ou superior.
+- PySide6 6.8 ou superior (inclui QtWebEngine).
+- QtAwesome 1.3 ou superior, usado para os ícones da interface.
+- yt-dlp, usado para consultar e baixar vídeos.
+- openai-whisper, usado como alternativa quando o vídeo não tem legendas.
+- Windows, macOS ou Linux com ambiente gráfico.
+- FFmpeg local para baixar/mesclar mídia, converter áudio e transcrever quando
+  não houver legendas.
+
+As dependências Python estão em `requirements.txt`.
+
+## Instalação e execução
+
+Execute os comandos na raiz do projeto.
 
 ### Windows (PowerShell)
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python main.py
 ```
 
-### Linux
+### Linux e macOS
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -U pip
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python main.py
 ```
 
-Se o Linux mostrar erro de plataforma gráfica (por exemplo, plugin `xcb`
-ausente), instale as bibliotecas Qt/X11 exigidas pela distribuição. O pacote
-PySide6 inclui QtWebEngine, mas não substitui todos os componentes gráficos do
-sistema operacional.
+No Linux, a distribuição pode exigir bibliotecas gráficas do Qt instaladas pelo
+sistema operacional. Se a inicialização indicar que falta um plugin como `xcb`,
+instale os componentes Qt/X11 correspondentes à sua distribuição.
 
-### macOS
+## Interface e atalhos
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install -r requirements.txt
-python main.py
+Os botões da barra incluem favoritos, bloqueador, download de vídeo, ferramentas
+e menu.
+Capturas e anotações ficam em **Ferramentas**; temas, bloqueador, dados e atalhos
+ficam em **Configurações**. A lista completa de atalhos também abre com `F1`.
+
+O botão de download abre um painel à direita. Ele analisa o link da aba atual ou
+um endereço colado no painel, permite escolher a qualidade máxima, o formato e a
+pasta de destino. Também pode baixar áudio, salvar transcrições e gerar legendas
+SRT. A transcrição usa legendas disponíveis primeiro e recorre ao Whisper quando
+necessário. As tarefas selecionadas rodam em segundo plano.
+
+### FFmpeg
+
+Coloque o executável `ffmpeg.exe` (ou `ffmpeg` em outros sistemas) em
+`FFmpeg/` ou `FFmpeg/bin/` na raiz do projeto, ou disponibilize-o no `PATH`.
+Os executáveis não são incluídos no repositório. A transcrição tenta usar legendas
+primeiro; se não houver, precisa do Whisper e do FFmpeg. O modelo Whisper pode ser
+baixado automaticamente para o cache do hen-Nave na primeira utilização. O suporte
+depende dos sites reconhecidos pelo yt-dlp e do acesso permitido pelo site de origem.
+
+| Ação | Atalho |
+|---|---|
+| Nova aba | `Ctrl+T` |
+| Fechar aba atual | `Ctrl+W` |
+| Focar a barra de endereço | `Ctrl+L` |
+| Abrir a página inicial | `Alt+Home` |
+| Abrir o histórico | `Ctrl+H` |
+| Abrir os favoritos | `Ctrl+Shift+O` |
+| Localizar na página | `Ctrl+F` |
+| Capturar a página | `Ctrl+Shift+S` |
+| Abrir a pasta de dados | `Ctrl+Shift+D` |
+| Mostrar todos os atalhos | `F1` |
+
+Os ícones da interface são definidos em `_ULTILIDADES_/icones.py`; textos,
+atalhos e cores são centralizados em `_CONFIGURA_/`.
+
+## Dados, cache e privacidade
+
+Os dados ficam fora da pasta do código:
+
+| Sistema | Pasta |
+|---|---|
+| Windows | `%APPDATA%\hen-nave\` |
+| Linux e macOS | `~/.hen-nave/` |
+
+A pasta contém configurações, banco SQLite, perfil persistente do WebEngine,
+cache e logs. Use o botão de pasta no rodapé ou `Ctrl+Shift+D` para abri-la.
+O botão **Limpar cache** remove o cache HTTP do navegador; cookies e histórico
+não são apagados.
+
+Janelas normais mantêm cookies, histórico e sessão de abas entre execuções.
+Janelas anônimas usam um perfil temporário e não salvam cookies, histórico ou
+sessão; favoritos continuam disponíveis. Anotações ficam desativadas nelas.
+O modo anônimo não oculta a atividade dos sites nem do provedor de internet.
+
+## Bloqueador de anúncios
+
+O bloqueador começa com uma lista local pequena; nenhuma lista pública vem
+configurada. É possível informar uma URL HTTPS nas configurações. O parser
+aceita arquivos hosts e regras simples como `||dominio^`, incluindo
+subdomínios. Não implementa filtros cosméticos nem toda a sintaxe do Adblock
+Plus, e não substitui uma extensão completa.
+
+## Segurança
+
+- Endereços, favoritos, histórico e sessão aceitam apenas URLs HTTP(S).
+- Consultas ao SQLite usam parâmetros.
+- A página inicial local escapa conteúdo dinâmico e não concede acesso a
+  arquivos locais para páginas remotas.
+- O sandbox do Chromium permanece habilitado.
+
+## Estrutura do projeto
+
+```text
+.
+├── _APP_/                 Janelas e recursos da interface
+├── _APPDATA_/             Pastas e arquivos de dados do usuário
+├── _CONFIGURA_/           Textos, temas, cores e atalhos
+├── _LOGS_/                Registro de eventos e falhas
+├── _THREADS_/             Threads e gerenciamento de execução
+├── _ULTILIDADES_/         Ícones e componentes reutilizáveis
+├── midias/                Logo do navegador e ícone do aplicativo
+├── nucleo/                Documentação do projeto
+├── tests/                 Testes automatizados
+├── browser.py             Navegação, janelas e perfis
+├── video_download.py      Consulta e download de vídeos
+├── storage.py             Persistência SQLite
+├── main.py                Inicialização do aplicativo
+└── requirements.txt       Dependências Python
 ```
 
-O Chromium embutido é atualizado junto com o PySide6. Atualize a dependência
-periodicamente com `python -m pip install -U PySide6`; para repetir a instalação
-com o conjunto de dependências do projeto, use `python -m pip install -U -r requirements.txt`.
+## Testes
 
-## Dados locais
-
-O aplicativo guarda dados em `~/.hen-nave/` (no Windows, dentro da pasta do
-perfil do usuário):
-
-- cookies e armazenamento persistente do perfil WebEngine;
-- cache do navegador e os arquivos HTML da página inicial;
-- `config/config.json`, `config/sessao.json` e o banco `config/hen-nave.sqlite3`;
-- logs em `logs/`.
-
-Downloads são salvos inicialmente na pasta Downloads do sistema, mas o diálogo
-permite escolher outro local.
-
-## Recursos e atalhos
-
-- Aba `Principal` fixa no índice zero; não pode ser fechada nem arrastada.
-- `+` ou `Ctrl+T`: nova página inicial em uma aba.
-- `Alt+Home`: atualiza e volta à aba Principal.
-- Barra de endereço: URL HTTP(S), domínio, localhost/IP ou busca DuckDuckGo.
-- `Ctrl+L`: focar e selecionar a barra de endereço.
-- `Ctrl+H`: histórico; duplo clique abre em nova aba.
-- `Ctrl+Shift+O`: favoritos; duplo clique abre em nova aba.
-- `Ctrl+D`: adicionar/remover favorito.
-- `Ctrl+N`: nova janela; `Ctrl+Shift+N`: nova janela anônima.
-- `Ctrl+W`: fechar aba atual, exceto a Principal.
-- `Ctrl+F`: localizar nesta página; `F5`: recarregar.
-- `Ctrl+=`, `Ctrl+-`, `Ctrl+0`: aumentar, diminuir e restaurar zoom.
-- O menu `☰` reúne histórico, favoritos, janelas, localizar, zoom,
-  limpeza do histórico e informações do aplicativo.
-
-Sessões normais são salvas no SQLite e restauradas ao iniciar, selecionando a
-aba Principal. Janelas anônimas usam um perfil off-the-record em memória e não
-salvam histórico nem sessão. A navegação anônima não esconde atividade dos
-sites ou do provedor; ela apenas evita salvar os dados desta sessão neste
-computador.
-
-## Segurança e limitações
-
-- A barra não executa `javascript:` nem esquemas digitados que não sejam
-  HTTP(S); esses textos viram buscas.
-- Favoritos, histórico e sessão aceitam somente URLs HTTP(S); consultas SQLite
-  usam parâmetros.
-- A página inicial é HTML local, escapa conteúdo salvo e não habilita acesso de
-  arquivos locais a páginas remotas.
-- O sandbox do Chromium permanece habilitado no código. Não há configuração
-  de `--no-sandbox` para o navegador no computador do usuário.
-- Se uma execução isolada na Replit falhar especificamente porque o ambiente
-  headless exige desativar o sandbox, isso deve ser feito somente na
-  configuração de execução da Replit, por exemplo em `[env]` no `.replit`:
-  `QTWEBENGINE_CHROMIUM_FLAGS = "--no-sandbox"`. Essa exceção é exclusiva do
-  ambiente Replit e não deve ser usada no computador do usuário nem incluída
-  no código do aplicativo.
-- Não há Navegação Segura do Google, extensões do Chrome ou gerenciador de
-  senhas nesta versão.
-- O modo anônimo não oculta o tráfego de sites, rede local, empregador ou
-  provedor de internet.
-
-## Testes sem interface
+Com as dependências instaladas, execute na pasta do projeto:
 
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q .
 ```
 
-Os testes cobrem resolução de endereços, gravação e filtragem SQLite, sessões,
-favoritos, deduplicação de recentes e escape do HTML. Eles não substituem um
-teste manual das janelas e do Chromium na plataforma desktop do usuário.
+Os testes automatizados não substituem a verificação manual da interface e do
+QtWebEngine em um computador com ambiente gráfico.

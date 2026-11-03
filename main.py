@@ -19,17 +19,21 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 if _DIR not in sys.path:
     sys.path.insert(0, _DIR)
 
+# Configuração pura em Python, sem imports Qt; define o mesmo diretório usado
+# pelo AppData e pelo logger para todos os arquivos de diagnóstico.
+from _CONFIGURA_ import PASTA_APPDATA
+
 # ── Exe sem console (--windowed / pythonw): stdout/stderr vêm como None ──────
 # NUNCA remova este bloco: sem ele, faulthandler.enable() e qualquer biblioteca
 # que escreva em stdout/stderr podem falhar apenas no executável.
-# Redireciona para CRASH_NATIVO.log em ~/.hen-nave/logs.
+# Redireciona para CRASH_NATIVO.log em PASTA_APPDATA/logs.
 _crash_file = None
 try:
     if getattr(sys, "frozen", False):
         _nome_app = os.path.splitext(os.path.basename(sys.executable))[0]
     else:
         _nome_app = "hen-nave"
-    _pasta_crash = os.path.join(os.path.expanduser("~"), ".hen-nave", "logs")
+    _pasta_crash = os.path.join(PASTA_APPDATA, "logs")
     os.makedirs(_pasta_crash, exist_ok=True)
     _crash_file = open(
         os.path.join(_pasta_crash, "CRASH_NATIVO.log"),
@@ -151,7 +155,7 @@ def main():
         app.setWindowIcon(QIcon(IMAGEM_ICO))
         log.ok("main.py", "main", f"Ícone carregado: {IMAGEM_ICO}")
     else:
-        log.aviso("main.py", "main", f"icon.ico não encontrado: {IMAGEM_ICO}")
+        log.aviso("main.py", "main", f"Ícone não encontrado: {IMAGEM_ICO}")
 
     log.ok("main.py", "main", "QApplication criada")
     controller = BrowserController(app)

@@ -27,25 +27,39 @@ MODO_DEV = True
 # ══════════════════════════════════════════════════════════════════════════════
 # APPDATA — pasta do usuário no sistema operacional
 # ══════════════════════════════════════════════════════════════════════════════
-# Windows: %APPDATA%\nome_do_projeto
-# Linux/Mac: ~/nome_do_projeto
-PASTA_APPDATA = os.path.join(
-    os.path.expanduser("~"),
-    ".hen-nave"
-)
+# Windows: %APPDATA%\hen-nave
+# Linux/Mac: ~/.hen-nave
+if os.name == "nt":
+    _PASTA_APPDATA_BASE = os.environ.get("APPDATA") or os.path.join(
+        os.path.expanduser("~"), "AppData", "Roaming"
+    )
+    PASTA_APPDATA = os.path.join(_PASTA_APPDATA_BASE, "hen-nave")
+else:
+    PASTA_APPDATA = os.path.join(os.path.expanduser("~"), ".hen-nave")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # APLICAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
-VERSAO_APP  = "v0.1.0"
+VERSAO_APP  = "v0.2.0"
 TITULO_APP  = "hen-Nave"
 TEMA_QT     = "Fusion"             # tema base do Qt
 
 # Caminhos absolutos — independentes do CWD de execução
 _PROJETO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMAGEM_ICO   = os.path.join(_PROJETO_DIR, "IMAGENS", "icon.ico")
-LOGO_MARCA   = os.path.join(_PROJETO_DIR, "IMAGENS", "logo_nome.png")
-LOGO_SIMB    = os.path.join(_PROJETO_DIR, "IMAGENS", "logo.png")
+PASTA_MIDIAS = os.path.join(_PROJETO_DIR, "midias")
+IMAGEM_ICO   = os.path.join(PASTA_MIDIAS, "icone.ico")
+LOGO_SIMB    = os.path.join(PASTA_MIDIAS, "logo.png")
+FONTE_PIXEL_ARQUIVO = os.path.join(
+    _PROJETO_DIR, "assets", "fonts", "PressStart2P-Regular.ttf"
+)
+PASTA_FFMPEG = os.path.join(_PROJETO_DIR, "FFmpeg")
+CAMINHOS_FFMPEG = (
+    PASTA_FFMPEG,
+    os.path.join(_PROJETO_DIR, "FFMPEG", "FFmpeg"),
+    os.path.join(_PROJETO_DIR, "FFMPEG"),
+)
+PASTAS_RELATIVAS_FFMPEG = ("bin", "")
+EXECUTAVEIS_FFMPEG = ("ffmpeg.exe", "ffmpeg")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FONTES
@@ -66,42 +80,72 @@ LARGURA_PADRAO = 1280
 ALTURA_PADRAO  = 800
 LARGURA_MIN    = 1024
 ALTURA_MIN     = 600
+VERSAO_ESTADO_JANELA = 2
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ATALHOS
 # ══════════════════════════════════════════════════════════════════════════════
-ATALHO_SAIR              = "Alt+F4"
-ATALHO_SALVAR            = "Ctrl+S"
-ATALHO_ABRIR             = "Ctrl+O"
-ATALHO_NOVO               = "Ctrl+N"
-ATALHO_NOVA_ABA           = "Ctrl+T"
-ATALHO_FECHAR_ABA         = "Ctrl+W"
-ATALHO_ENDERECO           = "Ctrl+L"
-ATALHO_HISTORICO          = "Ctrl+H"
-ATALHO_FAVORITOS          = "Ctrl+Shift+O"
-ATALHO_NOVA_JANELA        = "Ctrl+N"
-ATALHO_JANELA_ANONIMA     = "Ctrl+Shift+N"
-ATALHO_HOME               = "Alt+Home"
-ATALHO_FAVORITO           = "Ctrl+D"
-ATALHO_LOCALIZAR          = "Ctrl+F"
-ATALHO_ZOOM_MAIS          = "Ctrl+="
-ATALHO_ZOOM_MENOS         = "Ctrl+-"
-ATALHO_ZOOM_RESET         = "Ctrl+0"
-ATALHO_RECARREGAR         = "F5"
+ATALHOS = (
+    {"id": "nova_aba", "categoria": "Abas", "atalho": "Ctrl+T", "descricao": "Abre uma nova aba."},
+    {"id": "fechar_aba", "categoria": "Abas", "atalho": "Ctrl+W", "descricao": "Fecha a aba atual."},
+    {"id": "endereco", "categoria": "Navegação", "atalho": "Ctrl+L", "descricao": "Foca a barra de endereço."},
+    {"id": "inicio", "categoria": "Navegação", "atalho": "Alt+Home", "descricao": "Abre a página inicial."},
+    {"id": "recarregar", "categoria": "Navegação", "atalho": "F5", "descricao": "Recarrega a página atual."},
+    {"id": "historico", "categoria": "Navegação", "atalho": "Ctrl+H", "descricao": "Abre o histórico de navegação."},
+    {"id": "favoritos", "categoria": "Navegação", "atalho": "Ctrl+Shift+O", "descricao": "Abre a lista de favoritos."},
+    {"id": "favorito", "categoria": "Navegação", "atalho": "Ctrl+D", "descricao": "Adiciona ou remove a página dos favoritos."},
+    {"id": "localizar", "categoria": "Página", "atalho": "Ctrl+F", "descricao": "Localiza texto na página atual."},
+    {"id": "zoom_mais", "categoria": "Página", "atalho": "Ctrl+=", "descricao": "Aumenta o zoom da página."},
+    {"id": "zoom_menos", "categoria": "Página", "atalho": "Ctrl+-", "descricao": "Diminui o zoom da página."},
+    {"id": "zoom_reset", "categoria": "Página", "atalho": "Ctrl+0", "descricao": "Restaura o zoom padrão."},
+    {"id": "captura", "categoria": "Página", "atalho": "Ctrl+Shift+S", "descricao": "Abre as opções de captura da página."},
+    {"id": "nova_janela", "categoria": "Janelas", "atalho": "Ctrl+N", "descricao": "Abre uma nova janela normal."},
+    {"id": "janela_anonima", "categoria": "Janelas", "atalho": "Ctrl+Shift+N", "descricao": "Abre uma nova janela anônima."},
+    {"id": "bloqueador_site", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+B", "descricao": "Ativa ou desativa o bloqueio neste site."},
+    {"id": "anotacoes", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+E", "descricao": "Mostra ou oculta as anotações do site."},
+    {"id": "atalhos", "categoria": "Ferramentas", "atalho": "F1", "descricao": "Abre esta lista de atalhos."},
+    {"id": "appdata", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+D", "descricao": "Abre a pasta de dados do hen-Nave."},
+)
+ATALHOS_POR_ID = {item["id"]: item for item in ATALHOS}
+
+
+def atalho(identificador: str) -> str:
+    """Obtém o atalho registrado na fonte única de definições."""
+    return ATALHOS_POR_ID[identificador]["atalho"]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HEN-NAVE — valores de produto e navegação
 # ══════════════════════════════════════════════════════════════════════════════
 ESQUEMA_INTERNO = "hennave"
 URL_BUSCA = "https://duckduckgo.com/"
+CHAVE_BUSCADOR_PADRAO = "buscador_padrao"
+BUSCADOR_PADRAO = "duckduckgo"
+BUSCADORES_PESQUISA = {
+    "duckduckgo": ("DuckDuckGo", URL_BUSCA),
+    "google": ("Google", "https://www.google.com/search"),
+    "bing": ("Bing", "https://www.bing.com/search"),
+}
 ARQUIVO_INICIO = "hen-nave-inicio.html"
 ARQUIVO_INICIO_ANONIMO = "hen-nave-inicio-anonimo.html"
 ARQUIVO_BANCO = "hen-nave.sqlite3"
+ARQUIVO_LISTA_BLOQUEIO = "hen-nave-lista-bloqueio.txt"
+ARQUIVO_EXPORTAR_ANOTACOES = "hen-nave-anotacoes.md"
 ARQUIVO_LOCK = "hen-nave.lock"
 NOME_PERFIL_WEB = "hen-nave"
+CHAVE_BLOQUEADOR_ATIVO = "bloqueador_ativo"
+CHAVE_URL_LISTA_BLOQUEIO = "lista_bloqueio_url"
+URL_LISTA_BLOQUEIO_PADRAO = ""
 SEGUNDOS_DEDUP_HISTORICO = 5
 LIMITE_RECENTES_INICIO = 8
 LIMITE_HISTORICO_DIALOGO = 1000
+LIMITE_LISTA_BLOQUEIO_BYTES = 5 * 1024 * 1024
+TIMEOUT_LISTA_BLOQUEIO_S = 20
+CAPTURA_ALTURA_MAXIMA_PX = 12000
+CAPTURA_LARGURA_MAXIMA_PX = 4096
+CAPTURA_INTERVALO_REPINTURA_MS = 120
+CAPTURA_PASTA = "hen-Nave"
+DEBOUNCE_ANOTACOES_MS = 800
+LARGURA_DOCK_ANOTACOES = 360
 STATUS_CURTO_MS = 3000
 STATUS_DOWNLOAD_INICIO_MS = 5000
 STATUS_CARREGAMENTO_MS = 3500
@@ -112,8 +156,24 @@ ZOOM_MAXIMO = 3.0
 ZOOM_INCREMENTO = 1.15
 LARGURA_ENDERECO_MINIMA = 280
 ALTURA_BARRA_ENDERECO = 36
+LARGURA_BARRA_CONTROLES_JANELA = 40
+TAMANHO_BOTAO_CONTROLE_JANELA = 32
+TAMANHO_ICONE_CONTROLE_JANELA = 15
 LARGURA_DIALOGO_PADRAO = 760
 ALTURA_DIALOGO_PADRAO = 540
+LARGURA_DOCK_DOWNLOAD_VIDEO = 380
+ATRASO_ANALISE_DOWNLOAD_VIDEO_MS = 650
+ALTURA_PREVIEW_TRANSCRICAO_DOWNLOAD = 180
+FORMATO_VIDEO_DOWNLOAD_PADRAO = "mp4"
+FORMATOS_VIDEO_DOWNLOAD = ("mp4", "mkv", "mov", "avi", "flv", "wmv", "webm")
+FORMATO_AUDIO_DOWNLOAD_PADRAO = "mp3"
+FORMATOS_AUDIO_DOWNLOAD = ("mp3", "m4a", "wav", "flac", "opus")
+QUALIDADE_AUDIO_KBPS_DOWNLOAD = "192"
+IDIOMAS_LEGENDA_DOWNLOAD = ("pt", "pt-BR", "en", "en-US")
+IDIOMA_TRANSCRICAO_DOWNLOAD = "pt"
+MODELO_WHISPER_DOWNLOAD = "base"
+ORGANIZAR_DOWNLOAD_POR_VIDEO_PADRAO = True
+ROTULO_QUALIDADE_AUTOMATICA = "Melhor disponível"
 COR_INCOGNITO = "#a78bfa"
 COR_INCOGNITO_ESCURA = "#30234c"
 COR_INICIO_FUNDO = "#111318"
@@ -129,9 +189,10 @@ CORES_DOMINIO = (
     "#8c7be8", "#d26ca7", "#6db6a4", "#c0a652",
 )
 TEXTO_AVISO_ANONIMO = (
-    "A navegação anônima não esconde sua atividade dos sites ou do provedor "
-    "de internet. Ela apenas evita salvar histórico, cookies e dados desta "
-    "sessão neste computador."
+    "A janela anônima não salva histórico, cookies nem a sessão de abas neste "
+    "computador. Seus favoritos salvos continuam acessíveis e podem ser "
+    "alterados. A navegação anônima não esconde sua atividade dos sites nem "
+    "do provedor de internet."
 )
 
 def _estilo_navegador_extra():
@@ -160,7 +221,41 @@ QTabBar::tab:selected {{
     border-bottom: 2px solid {COR_ACENTO};
 }}
 QTabBar::tab:hover {{ background: {COR_BG_TERCIARIO}; }}
-QToolButton#favoriteButton {{ color: {AMARELO}; font-size: 16px; }}
+QToolButton#tabCloseButton {{
+    color: {COR_TEXTO_SUTIL};
+    background: transparent;
+    border: none;
+    padding: 0;
+}}
+QToolButton#tabCloseButton:hover {{
+    color: {COR_PERIGO};
+    background: {COR_BG_TERCIARIO};
+    border: 1px solid {COR_PERIGO};
+    border-radius: 4px;
+}}
+QToolButton#tabCloseButton, QToolButton#newTabButton,
+QToolButton#footerActionButton {{
+    min-width: 24px;
+    max-width: 24px;
+    min-height: 24px;
+    max-height: 24px;
+}}
+QToolButton#newTabButton, QToolButton#footerActionButton {{
+    background: transparent;
+    border: none;
+    padding: 0;
+}}
+QToolButton#newTabButton:hover, QToolButton#footerActionButton:hover {{
+    background: {COR_BG_TERCIARIO};
+    border-radius: 4px;
+}}
+QLabel#shortcutKey {{ color: {COR_ACENTO}; font-weight: bold; }}
+QToolButton#favoriteButton {{
+    background: transparent; border: none; padding: 0;
+}}
+QToolButton#favoriteButton:hover, QToolButton#toolsButton:hover {{
+    background: {COR_BG_TERCIARIO}; border-radius: 4px;
+}}
 QWidget#findBar {{
     background: {COR_BG_SECUNDARIO};
     border-top: 1px solid {COR_BORDA};
@@ -216,6 +311,10 @@ main {{ width: min(920px, calc(100% - 48px)); margin: 0 auto; padding: 72px 0 64
     width: 52px; height: 52px; margin: 0 auto 15px; border-radius: 17px;
     display: grid; place-items: center; color: white; font-weight: 800;
     font-size: 26px; background: linear-gradient(135deg, var(--accent), #63d7ce);
+}}
+.brand-logo {{
+    display: block; width: 104px; height: 104px; margin: 0 auto 15px;
+    padding: 8px; border-radius: 24px; background: #fff; object-fit: contain;
 }}
 h1 {{ margin: 0; font-size: 34px; letter-spacing: -1px; }}
 .subtitle {{ color: var(--muted); margin: 9px 0 0; font-size: 14px; }}
@@ -277,6 +376,8 @@ CINZA_ESCURO   = "#0F1210"
 BRANCO         = "#EDEEF0"
 AMARELO        = "#FFC107"
 AMBAR          = "#E0A800"
+COR_FAVORITO   = "#FFC857"
+COR_FAVORITO_VAZIO = "#FFFFFF"
 VERDE          = "#4ec994"
 TURQUESA       = "#00C2A8"
 AZUL_CLARO     = "#2196F3"
@@ -461,10 +562,6 @@ TEXTO_UI = {
     "main_tab": "Principal",
     "new_tab": "Nova aba",
     "navigation_toolbar": "Navegação",
-    "new_tab_button": "+",
-    "menu_symbol": "☰",
-    "favorite_empty_symbol": "☆",
-    "favorite_active_symbol": "★",
     "wait": "Aguarde...",
     "confirm": "Confirmar",
     "cancel": "Cancelar",
@@ -475,11 +572,52 @@ TEXTO_UI = {
     "reload": "Recarregar",
     "home": "Início",
     "new_tab_tooltip": "Nova aba",
+    "keyboard_shortcuts": "Atalhos de teclado",
     "address_placeholder": "Pesquisar ou digitar um endereço",
     "favorite_add": "Adicionar aos favoritos",
     "favorite_remove": "Remover dos favoritos",
     "private_short": "Anônima",
     "menu_tooltip": "Menu",
+    "window_brand_tooltip": "Menu e configurações do hen-Nave",
+    "window_controls_toolbar": "Controles da janela",
+    "window_close": "Fechar janela",
+    "window_maximize": "Maximizar janela",
+    "window_restore": "Restaurar janela",
+    "window_minimize": "Minimizar janela",
+    "window_resize": "Redimensionar janela",
+    "inspect_page": "Inspecionar página",
+    "inspect_title": "Inspecionar página",
+    "inspect_notice": (
+        "Inspeção manual. As edições são locais e temporárias; não alteram "
+        "os arquivos do site."
+    ),
+    "inspect_refresh": "Atualizar DOM",
+    "inspect_search_placeholder": "Buscar no DOM por tag, classe ou texto",
+    "inspect_search_button": "Buscar",
+    "inspect_select_element": "Selecionar elemento",
+    "inspect_cancel_selection": "Cancelar seleção",
+    "inspect_copy_text": "Copiar texto",
+    "inspect_copy_markup": "Copiar marcação",
+    "inspect_markup_heading": "HTML selecionado (valores de campos ocultos)",
+    "inspect_no_page": "Abra uma página HTTP(S) para inspecionar.",
+    "inspect_empty": "Selecione um elemento na árvore ou na página.",
+    "inspect_edit_heading": "Experimento temporário",
+    "inspect_text_label": "Texto do elemento",
+    "inspect_apply_text": "Aplicar texto",
+    "inspect_background_label": "Fundo",
+    "inspect_foreground_label": "Texto",
+    "inspect_apply_style": "Aplicar cores",
+    "inspect_no_element": "Selecione um elemento primeiro.",
+    "inspect_selection_armed": "Clique em um elemento da página para selecioná-lo.",
+    "inspect_selected": "Elemento selecionado: {selector}",
+    "inspect_search_empty": "Nenhum elemento corresponde à busca.",
+    "inspect_edit_disabled_control": (
+        "A edição de texto e cores não está disponível para campos de formulário."
+    ),
+    "inspect_invalid_color": "Informe cores válidas, por exemplo #334455.",
+    "inspect_update_success": "Alteração temporária aplicada à página.",
+    "inspect_update_error": "O elemento não está mais disponível na página.",
+    "ai_placeholder": "Inteligência Artificial (em desenvolvimento)",
     "ready": "Pronto",
     "history": "Histórico",
     "new_window": "Nova janela",
@@ -525,4 +663,194 @@ TEXTO_UI = {
     "history_entry_format": "{title}\n{url}",
     "history_entry_date_format": "{entry}  ·  {date}",
     "favorite_entry_format": "{title}\n{url}",
+    "settings_menu": "Configurações",
+    "search_engine_menu": "Buscador padrão",
+    "search_engine_invalid": "Mecanismo de pesquisa inválido: {engine}",
+    "tools_menu": "Ferramentas",
+    "theme_menu": "Tema",
+    "theme_custom": "Personalizado",
+    "theme_customize": "Personalizar cores e fontes…",
+    "theme_custom_title": "Personalizar tema",
+    "theme_custom_description": "Escolha as cores da interface e as fontes do navegador e da página inicial.",
+    "theme_custom_colors": "Cores da interface",
+    "theme_custom_fonts": "Fontes",
+    "theme_custom_font_ui": "Fonte da interface",
+    "theme_custom_font_content": "Fonte de campos e página inicial",
+    "theme_custom_preview": "Prévia",
+    "theme_custom_preview_button": "Botão de destaque",
+    "theme_custom_save": "Salvar e aplicar",
+    "theme_color_background": "Plano de fundo",
+    "theme_color_surface": "Barras e menus",
+    "theme_color_surface_alt": "Painéis e realce",
+    "theme_color_field": "Campos",
+    "theme_color_border": "Bordas",
+    "theme_color_border_strong": "Bordas fortes",
+    "theme_color_text": "Texto principal",
+    "theme_color_text_secondary": "Texto secundário",
+    "theme_color_muted": "Texto discreto",
+    "theme_color_accent": "Cor de destaque",
+    "theme_color_accent_hover": "Destaque ao passar o mouse",
+    "theme_color_accent_active": "Destaque pressionado",
+    "theme_color_success": "Sucesso",
+    "theme_color_danger": "Erro e fechar",
+    "theme_color_private": "Modo anônimo",
+    "theme_color_private_background": "Fundo do modo anônimo",
+    "open_app_data": "Abrir pasta de dados",
+    "app_data_opened": "Pasta de dados do hen-Nave aberta.",
+    "app_data_open_error": "Não foi possível abrir a pasta de dados do hen-Nave.",
+    "clear_cache": "Limpar cache",
+    "cache_cleared": "Limpeza do cache iniciada. Cookies e histórico foram mantidos.",
+    "cache_clear_error": "Não foi possível limpar o cache de navegação.",
+    "capture_menu": "Captura",
+    "capture_visible": "Parte visível",
+    "capture_full_page": "Página inteira",
+    "capture_pdf": "Salvar página como PDF",
+    "capture_save_title": "Salvar captura",
+    "capture_pdf_save_title": "Salvar página como PDF",
+    "capture_image_filter": "Imagem PNG (*.png)",
+    "capture_pdf_filter": "Arquivo PDF (*.pdf)",
+    "capture_done_title": "Captura concluída",
+    "capture_done_message": "Arquivo salvo em:\n{path}\n\nA imagem também foi copiada para a área de transferência.",
+    "capture_pdf_done_message": "PDF salvo em:\n{path}",
+    "capture_truncated_warning": "A captura atingiu o limite configurado; o conteúdo que excede o limite não foi incluído.",
+    "capture_open_folder": "Abrir pasta",
+    "capture_close": "Fechar",
+    "capture_error_title": "Não foi possível capturar",
+    "capture_error_message": "Não foi possível concluir a captura: {error}",
+    "capture_busy": "Já existe uma captura em andamento.",
+    "capture_started": "Preparando captura…",
+    "blocker_name": "Bloqueador de anúncios",
+    "blocker_settings": "Configurar bloqueador de anúncios",
+    "blocker_toggle_site": "Desativar bloqueio neste site",
+    "blocker_toggle_site_on": "Ativar bloqueio neste site",
+    "blocker_toggle_no_site": "Alterar bloqueio do site",
+    "blocker_tooltip_enabled": "Bloqueador ativo em {site}; {count} bloqueios. Clique para desativar neste site.",
+    "blocker_tooltip_disabled": "Bloqueador desativado em {site}. Clique para ativar neste site.",
+    "blocker_tooltip_no_site": "O bloqueador está ativo; abra um site HTTP(S) para ver a contagem.",
+    "blocker_tooltip_globally_disabled": "O bloqueador está desligado nas configurações.",
+    "blocker_global_disabled": "Ative o bloqueador nas configurações antes de alterar este site.",
+    "blocker_site_enabled": "Bloqueio ativado para {site}.",
+    "blocker_site_disabled": "Bloqueio desativado para {site}.",
+    "blocker_settings_title": "Configurações do bloqueador de anúncios",
+    "blocker_enabled_label": "Ativar o bloqueador de anúncios",
+    "blocklist_url_label": "URL da lista pública (HTTPS)",
+    "blocklist_url_placeholder": "Deixe vazio para usar somente a lista local",
+    "blocklist_update_button": "Atualizar lista",
+    "blocklist_save_button": "Salvar",
+    "blocklist_status_ready": "Lista local: {count} domínios.",
+    "blocklist_status_downloading": "Baixando a lista…",
+    "blocklist_status_updated": "Lista atualizada: {count} domínios.",
+    "blocklist_status_saved": "Configurações salvas.",
+    "blocklist_status_url_required": "Informe uma URL HTTPS antes de atualizar.",
+    "blocklist_status_url_invalid": "A URL da lista precisa usar HTTPS e ter um host válido.",
+    "blocklist_status_download_error": "Não foi possível atualizar a lista. Verifique a conexão e tente novamente.",
+    "blocklist_status_save_error": "A lista foi baixada, mas não pôde ser salva.",
+    "blocklist_status_invalid": "A resposta não contém domínios válidos.",
+    "blocklist_status_size_limit": "A lista excede o limite de tamanho permitido.",
+    "blocklist_help": "A lista inicial é local. Nenhuma fonte pública vem configurada; confira a origem e a licença antes de usar uma URL.",
+    "blocklist_confirm_title": "Atualizar lista de bloqueio",
+    "blocklist_confirm_message": "Substituir a lista local pela lista baixada?",
+    "notes_title": "Anotações por site",
+    "notes_title_with_note": "Anotações por site (com nota)",
+    "notes_group": "Anotações",
+    "notes_search_placeholder": "Buscar em todas as anotações",
+    "notes_editor_placeholder": "Escreva uma anotação para este site",
+    "notes_open_site_hint": "Abra um site HTTP(S) para editar sua anotação.",
+    "notes_indicator": "● Há uma anotação para este site",
+    "notes_search_empty": "Nenhuma anotação encontrada.",
+    "notes_search_result_format": "{host} — {preview}",
+    "notes_export_button": "Exportar tudo em Markdown",
+    "notes_export_title": "Exportar anotações",
+    "notes_export_filter": "Markdown (*.md)",
+    "notes_export_done_title": "Exportação concluída",
+    "notes_export_done": "Anotações exportadas.",
+    "notes_export_error": "Não foi possível exportar as anotações: {error}",
+    "notes_private_unavailable": "Anotações ficam desativadas em janelas anônimas.",
+    "notes_markdown_title": "# Anotações do hen-Nave",
+    "notes_markdown_entry": "## {host}\n\n{text}",
+    "notes_export_empty": "Ainda não há anotações para exportar.",
+    "video_download_title": "Baixar vídeo",
+    "video_download_button": "Baixar vídeo",
+    "video_download_url_label": "Endereço do vídeo",
+    "video_download_url_placeholder": "Cole um link HTTP(S) de vídeo",
+    "video_download_analyze": "Analisar link",
+    "video_download_info_waiting": "Analise o link para consultar título, canal, duração e qualidades.",
+    "video_download_info_format": "Título: {title}\nCanal: {uploader}\nDuração: {duration}\nResolução detectada: {resolution}\nFormato de origem: {format}",
+    "video_download_no_qualities": "Qualidades não informadas",
+    "video_download_tasks_title": "O que você quer fazer?",
+    "video_download_task_video": "Baixar vídeo",
+    "video_download_task_audio": "Baixar áudio",
+    "video_download_task_transcribe": "Criar transcrição",
+    "video_download_task_srt": "Criar legenda SRT",
+    "video_download_format_section": "Formatos e qualidade",
+    "video_download_quality_label": "Qualidade máxima",
+    "video_download_format_label": "Formato do arquivo",
+    "video_download_audio_format_label": "Formato do áudio",
+    "video_download_destination_label": "Salvar em",
+    "video_download_destination_placeholder": "Pasta de destino",
+    "video_download_choose_folder": "Escolher",
+    "video_download_choose_folder_title": "Escolher pasta para o vídeo",
+    "video_download_organize_label": "Organizar em uma pasta por vídeo",
+    "video_download_organize_tooltip": "Cria uma subpasta com o título e o identificador do vídeo.",
+    "video_download_start": "Iniciar tarefas selecionadas",
+    "video_download_status_ready": "Cole ou use o endereço da aba e analise o vídeo.",
+    "video_download_status_choose_task": "Marque pelo menos uma tarefa para iniciar.",
+    "video_download_status_analyzing": "Consultando informações do vídeo…",
+    "video_download_status_downloading": "Preparando as tarefas selecionadas…",
+    "video_download_status_progress": "Baixando vídeo — {percent}%",
+    "video_download_status_finalizing": "Finalizando o arquivo…",
+    "video_download_transcribe_progress": "Baixando áudio para transcrição — {percent}%",
+    "video_download_status_complete": "Tarefas concluídas.\nArquivos salvos em:\n{folder}",
+    "video_download_status_error": "Não foi possível concluir: {error}",
+    "video_download_status_invalid_url": "Informe um endereço HTTP ou HTTPS válido.",
+    "video_download_status_analyze_first": "Analise o endereço atual antes de baixar.",
+    "video_download_status_busy": "Aguarde a operação atual terminar.",
+    "video_download_transcription_title": "Transcrição gerada",
+    "video_download_transcription_placeholder": "O texto transcrito aparecerá aqui.",
+    "video_download_transcription_saved": "Transcrição salva em {path}",
+    "video_download_transcription_srt_saved": "Legenda SRT salva em {path}",
+    "video_download_status_find_subtitles": "Procurando legendas disponíveis…",
+    "video_download_status_transcribe_audio": "Baixando áudio para transcrição…",
+    "video_download_status_load_whisper": "Carregando o modelo de transcrição…",
+    "video_download_status_whisper": "Transcrevendo áudio…",
+    "video_download_status_no_info": "Não foi possível obter informações desse endereço.",
+    "video_download_status_quality_positive": "A qualidade máxima precisa ser positiva.",
+    "video_download_status_yt_dlp_failed": "O yt-dlp não conseguiu concluir o download.",
+    "video_download_status_no_tasks": "Escolha ao menos uma tarefa de mídia.",
+    "video_download_status_transcript_empty": "Não foi encontrada legenda nem fala reconhecível para transcrever.",
+    "video_download_status_srt_no_segments": "Não foi possível gerar SRT: a transcrição não retornou trechos com horários.",
+    "video_download_not_reported": "—",
+    "video_download_unknown_title": "Vídeo sem título",
+    "video_download_unknown_channel": "Canal não informado",
+    "video_download_ffmpeg_missing": (
+        "FFmpeg não encontrado. Coloque ffmpeg.exe em {folder}, "
+        "em {folder}/bin ou instale-o no PATH do sistema."
+    ),
+    "video_download_invalid_format": "O formato de vídeo escolhido não está disponível.",
+    "video_download_invalid_operation": "Operação interna de vídeo desconhecida: {operation}",
+    "video_download_playlist_unsupported": "Informe o link de um vídeo individual, não de uma playlist.",
+    "video_download_yt_dlp_missing": (
+        "A dependência yt-dlp não está instalada. Instale os pacotes de "
+        "requirements.txt do hen-Nave."
+    ),
+    "video_download_whisper_missing": (
+        "A transcrição automática precisa do pacote openai-whisper. "
+        "Instale as dependências de requirements.txt do hen-Nave."
+    ),
+    "video_download_audio_error": "Não foi possível concluir o download de áudio.",
+    "video_download_audio_format_error": "O formato de áudio escolhido não está disponível.",
+    "video_download_audio_progress": "Baixando áudio — {percent}%",
+    "video_download_transcription_failed": "Não foi possível baixar o áudio para transcrição.",
+    "video_download_transcription_file_missing": "O áudio foi baixado, mas o arquivo não foi localizado.",
+    "video_download_status_playlist": "Informe o link de um vídeo individual, não de uma playlist.",
 }
+
+from .temas import (
+    CHAVES_CORES_PERSONALIZADAS,
+    CHAVES_FONTES_PERSONALIZADAS,
+    CHAVES_TEMA,
+    CHAVE_TEMA_PERSONALIZADO,
+    TEMAS,
+    TEMA_PADRAO,
+    TEMA_PERSONALIZADO,
+)

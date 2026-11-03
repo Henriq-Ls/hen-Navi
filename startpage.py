@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import html
+from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from _CONFIGURA_ import (
@@ -10,10 +13,22 @@ from _CONFIGURA_ import (
     CSS_PAGINA_INICIAL,
     ESQUEMA_INTERNO,
     IDIOMA_UI,
+    LOGO_SIMB,
+    TEMA_PADRAO,
     TEXTO_AVISO_ANONIMO,
     TEXTO_UI,
 )
+from theme_engine import startpage_theme_css
 from utils import is_http_url
+
+
+@lru_cache(maxsize=1)
+def _logo_data_uri() -> str:
+    try:
+        encoded_logo = base64.b64encode(Path(LOGO_SIMB).read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:image/png;base64,{encoded_logo}"
 
 
 def _domain_for(url: str) -> str:
@@ -60,6 +75,8 @@ def generate_start_page(
     recent: list[dict] | None = None,
     *,
     private: bool = False,
+    theme_id: str = TEMA_PADRAO,
+    custom_theme: dict | None = None,
 ) -> str:
     """Monta uma página sem scripts nem conteúdo externo, escapando dados dinâmicos."""
     safe_favorites = _safe_items(favorites or [])
@@ -83,6 +100,15 @@ def generate_start_page(
         if private
         else ""
     )
+    logo_data_uri = _logo_data_uri()
+    brand_mark = (
+        f'<img class="brand-logo" src="{html.escape(logo_data_uri, quote=True)}" alt="">'
+        if logo_data_uri
+        else (
+            f'<div class="brand-mark" aria-hidden="true">'
+            f'{html.escape(TEXTO_UI["brand_initial"])}</div>'
+        )
+    )
 
     return f"""<!doctype html>
 <html lang="{html.escape(IDIOMA_UI, quote=True)}">
@@ -90,12 +116,12 @@ def generate_start_page(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(TEXTO_UI["home_title"], quote=True)}</title>
-  <style>{CSS_PAGINA_INICIAL}</style>
+  <style>{CSS_PAGINA_INICIAL}{startpage_theme_css(theme_id, custom_theme=custom_theme)}</style>
 </head>
 <body>
   <main>
     <header class="brand">
-      <div class="brand-mark" aria-hidden="true">{html.escape(TEXTO_UI["brand_initial"])}</div>
+      {brand_mark}
       <h1>{html.escape(TEXTO_UI["browser_name"])}</h1>
       <p class="subtitle">{html.escape(TEXTO_UI["home_subtitle"])}</p>
     </header>

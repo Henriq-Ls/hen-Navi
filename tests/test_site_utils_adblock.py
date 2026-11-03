@@ -2,8 +2,8 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from adblock_rules import BlocklistFile, BlocklistMatcher, parse_blocklist
-from site_utils import (
+from _SERVICOS_.adblock_rules import BlocklistFile, BlocklistMatcher, parse_blocklist
+from _ULTILIDADES_.site_utils import (
     domain_matches,
     extract_site_host,
     is_valid_https_url,

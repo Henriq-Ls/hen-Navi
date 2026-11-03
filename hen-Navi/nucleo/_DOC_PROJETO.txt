@@ -1,0 +1,178 @@
+════════════════════════════════════════════════════════════════════════════════
+  DOCUMENTAÇÃO DO PROJETO
+════════════════════════════════════════════════════════════════════════════════
+
+hen-Nave é um navegador desktop independente, em Python, PySide6 e
+QtWebEngine. Ele abre uma página inicial própria, navega em HTTP(S), salva
+histórico/favoritos/sessão/anotações em SQLite e mantém cookies/cache em um perfil
+persistentemente guardado em `%APPDATA%/hen-nave` no Windows ou `~/.hen-nave`
+no Linux/macOS. O produto e a documentação usam o nome hen-Nave; não renomeie
+a pasta física do projeto sem pedido explícito.
+
+Janelas anônimas usam perfil temporário, não gravam histórico, cookies ou
+sessão de abas e não entram na sessão restaurada. Favoritos continuam
+acessíveis e suas alterações são persistentes. Anotações são desativadas;
+exceções do bloqueador e contagens ficam em memória. A página inicial anônima
+usa arquivo temporário, removido ao fechar a janela e limpo na próxima
+inicialização se o processo tiver sido encerrado à força.
+
+────────────────────────────────────────────────────────────────────────────────
+MÓDULOS E RESPONSABILIDADES
+────────────────────────────────────────────────────────────────────────────────
+
+_CONFIGURA_/
+  Fonte única de textos visíveis, cores, atalhos e dimensões de interface.
+
+_LOGS_/
+  Logger singleton. Gera LOG_GERAL.log a cada sessão.
+  Captura crashes Python (sys.excepthook) e nativos C/Qt (faulthandler).
+
+_APPDATA_/
+  Gerencia a pasta do usuário: %APPDATA%/hen-nave no Windows,
+  ~/.hen-nave no Linux/macOS.
+  Caminhos canônicos, config.json, sessao.json e storage.py (persistência SQLite
+  de histórico, favoritos, sessão, anotações, exceções e downloads comuns).
+  Metadados de provedores não incluem chaves ou tokens.
+
+_THREADS_/
+  Base class ThreadSegura e gerenciador central ThreadManager.
+  Todas as threads do projeto herdam ThreadSegura; exceções em run() são
+  capturadas e registradas.
+  Inclui o worker cancelável do assistente de página.
+
+_APP_/
+  Interface da janela principal, painéis de anotações/IA e diálogos do
+  bloqueador e das conexões de IA. _APP_/ai_config.py preenche os presets dos
+  provedores e consulta modelos do Ollama no serviço local.
+  dialogs.py contém as janelas de histórico e favoritos; startpage.py e
+  private_startpage.py criam as páginas iniciais normal e anônima.
+  browser_downloads.py mantém o painel do histórico comum e temporário anônimo.
+  Navegador/abas.py mantém a aba Principal fixa no primeiro índice.
+
+_SERVICOS_/
+  Serviços sem interface: adblocker.py/adblock_rules.py, ai_service.py,
+  ai_provider_store.py e video_download.py.
+
+_ULTILIDADES_/
+  Ícones, pop-ups padronizados e funções reutilizáveis de URL, captura e host.
+
+_CONFIGURA_/theme_engine.py
+  Geração dos estilos Qt/CSS usando os temas configurados.
+
+browser.py
+  Controlador de janelas/perfis, páginas WebEngine, downloads, bloqueador,
+  zoom, busca, tela cheia, persistência da sessão e integração dos painéis
+  laterais. Downloads comuns são persistidos; downloads anônimos ficam em
+  memória. O painel de IA é criado durante a montagem da interface, antes da
+  criação das abas.
+
+_APP_/download_video.py
+  Painel lateral de processamento de vídeo/áudio e transcrição, ligado à URL atual
+  ou a um link informado.
+
+_SERVICOS_/video_download.py
+  Consulta de metadados, download de vídeo/áudio e transcrição/SRT com yt-dlp,
+  Whisper opcional e FFmpeg local.
+
+_THREADS_/video_download.py
+  Executa análise e download sem bloquear a interface.
+
+_SERVICOS_/ai_service.py
+  Cliente HTTP sem streaming para Ollama e APIs OpenAI-compatible; valida URLs,
+  bloqueia redirecionamentos, limita texto/resposta e não registra conteúdo.
+
+_SERVICOS_/ai_provider_store.py
+  Salva metadados de provedores no AppData e credenciais somente no keyring do SO.
+
+_APPDATA_/storage.py
+  Banco SQLite parametrizado, também responsável pelo histórico persistente de
+  downloads comuns. Downloads anônimos permanecem somente em memória.
+
+_SERVICOS_/adblock_rules.py / _SERVICOS_/adblocker.py
+  Parser simples de listas hosts e `||dominio^`, casamento por domínio e
+  interceptação rápida de sub-recursos. Não implementa sintaxe completa nem
+  filtros cosméticos do Adblock Plus.
+
+_ULTILIDADES_/site_utils.py
+  Normalização e extração de host para regras, exceções e anotações.
+
+_APP_/private_startpage.py
+  Criação e limpeza de arquivos temporários da página inicial anônima.
+
+_APP_/startpage.py
+  HTML local da página inicial; escapa valores dinâmicos e aceita somente
+  URLs HTTP(S) nos links.
+
+_ULTILIDADES_/utils.py
+  Valida a barra de endereço e converte texto livre no buscador padrão escolhido
+  em Configurações (DuckDuckGo, Google ou Bing).
+
+_APP_/dialogs.py
+  Janelas de histórico e favoritos com busca, abertura e remoção.
+
+_ULTILIDADES_/popups.py
+  Ponto único para configurar e exibir mensagens, avisos, erros e confirmações.
+
+tests/
+  Testes unittest para resolução de endereços, SQLite, HTML inicial, bloqueio,
+  anotações, páginas temporárias, serviços de IA com HTTP simulado, integração
+  estática dos painéis e registro de exceções em threads.
+
+_ULTILIDADES_/
+  Ícones, popups e ferramentas reutilizáveis.
+
+nucleo/
+  Apenas documentação .txt. NUNCA coloque .py aqui.
+
+────────────────────────────────────────────────────────────────────────────────
+DECISÕES DE ARQUITETURA
+────────────────────────────────────────────────────────────────────────────────
+
+  - A página inicial é um arquivo local em AppData, não setHtml; o esquema
+    hennave://search é interceptado pela subclasse QWebEnginePage.
+  - Somente URLs HTTP(S) entram em histórico, favoritos e sessão.
+  - O perfil anônimo é mantido vivo até a destruição das views que o usam.
+  - A lista de bloqueio inicial é local e pequena; nenhuma URL pública vem
+    configurada por padrão.
+  - Contadores do bloqueador são protegidos por lock e enviados à interface
+    por sinais; exceções normais ficam no SQLite e exceções anônimas em memória.
+  - A sessão só é gravada depois de concluir a restauração; a janela final
+    salva sua lista antes de ser removida do controlador.
+  - O código nunca desativa o sandbox do Chromium nem concede acesso local
+    a páginas remotas.
+  - O assistente de página só coleta `document.body.innerText` após ação
+    explícita; não persiste prompt, texto da página, histórico de conversa ou
+    resposta. Conversas por aba vivem apenas na memória da janela.
+  - Os painéis de anotações, downloads, inspeção e IA compartilham a mesma pilha
+    lateral abaixo da navegação; os controles da janela permanecem na faixa
+    externa direita.
+  - O painel de IA deve ser inicializado durante `_build_interface`, antes da
+    criação de abas que possam liberar o contexto de IA ao serem fechadas.
+  - Erros de configuração do assistente (provedor, modelo ou chave ausente) ficam
+    no painel; apenas a engrenagem/menu abre a janela de configurações. O envio
+    a um provedor de nuvem ainda exige consentimento explícito.
+  - Chaves de IA ficam em keyring do sistema; sem backend seguro, a gravação
+    falha sem alternativa em arquivo. Não se aceitam redirecionamentos HTTP.
+  - Provedores remotos exigem HTTPS. HTTP só é permitido para localhost ou IP
+    privado. Groq e OpenRouter usam o protocolo OpenAI-compatible confirmado nas
+    documentações oficiais; Ollama usa `/api/tags` e `/api/chat`.
+  - A detecção de modelos Ollama consulta `http://localhost:11434/api/tags`
+    durante o cadastro ou seleção do provedor. O serviço Ollama precisa estar
+    em execução; o hen-Nave não procura nem inicia o executável.
+  - Os testes de integração com Qt e a interface real do Windows exigem validação
+    manual; testes com HTTP simulado não comprovam acesso a provedores reais.
+  - O download de vídeo usa yt-dlp sem importar cookies do navegador e procura
+    o FFmpeg local em FFmpeg/ ou FFmpeg/bin/ antes do PATH do sistema.
+
+────────────────────────────────────────────────────────────────────────────────
+DEPENDÊNCIAS EXTERNAS
+────────────────────────────────────────────────────────────────────────────────
+
+  PySide6        — framework Qt e Chromium via QtWebEngine
+  qtawesome      — ícones FontAwesome, opcional para a interface
+  keyring        — armazenamento de chaves no cofre seguro do sistema operacional
+  yt-dlp         — consulta de metadados e download de vídeo/áudio
+  openai-whisper — transcrição local quando não houver legendas
+  FFmpeg         — executável local para mesclar/converter mídia e transcrição Whisper
+
+════════════════════════════════════════════════════════════════════════════════

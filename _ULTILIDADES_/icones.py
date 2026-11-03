@@ -29,7 +29,7 @@ from _CONFIGURA_.temas import TEMAS
 
 
 _COR_POR_TEMA = {
-    COR_TEXTO: "text",
+    COR_TEXTO: "icon",
     COR_ACENTO: "accent",
     COR_PERIGO: "danger",
     COR_SUCESSO: "success",
@@ -94,10 +94,12 @@ def ico_menu() -> QIcon: return icone("fa5s.bars", COR_TEXTO)
 def ico_favorito_vazio() -> QIcon: return icone("fa5r.star", COR_FAVORITO_VAZIO)
 def ico_ferramentas() -> QIcon: return icone("fa5s.tools", COR_TEXTO)
 def ico_bloqueador() -> QIcon: return icone("fa5s.shield-alt", COR_TEXTO)
-def ico_video_download() -> QIcon: return icone("fa5s.download", COR_TEXTO)
+def ico_video_download() -> QIcon: return icone("fa5s.video", COR_TEXTO)
+def ico_downloads() -> QIcon: return icone("fa5s.download", COR_TEXTO)
 def ico_anotacoes() -> QIcon: return icone("fa5s.sticky-note", COR_TEXTO)
 def ico_inspecionar() -> QIcon: return icone("fa5s.code", COR_TEXTO)
 def ico_ia() -> QIcon: return icone("fa5s.brain", COR_TEXTO)
+def ico_traduzir() -> QIcon: return icone("fa5s.language", COR_TEXTO)
 def ico_tema() -> QIcon: return icone("fa5s.palette", COR_TEXTO)
 def ico_captura() -> QIcon: return icone("fa5s.camera", COR_TEXTO)
 def ico_imagem() -> QIcon: return icone("fa5s.file-image", COR_TEXTO)

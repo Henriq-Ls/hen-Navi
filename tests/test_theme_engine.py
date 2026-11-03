@@ -8,8 +8,8 @@ from _CONFIGURA_ import (
     TEMA_PERSONALIZADO,
     VERSAO_APP,
 )
-from startpage import generate_start_page
-from theme_engine import (
+from _APP_.startpage import generate_start_page
+from _CONFIGURA_.theme_engine import (
     normalizar_tema_personalizado,
     obter_tema,
     startpage_theme_css,
@@ -40,12 +40,13 @@ class ThemeConfigurationTests(unittest.TestCase):
         self.assertEqual(obter_tema()["name"], TEMAS[TEMA_PADRAO]["name"])
         with self.assertRaises(ValueError):
             obter_tema("inexistente")
-        self.assertEqual(VERSAO_APP, "v0.2.0")
+        self.assertEqual(VERSAO_APP, "v0.3.0")
 
     def test_custom_theme_applies_safe_colors_and_fonts_everywhere(self):
         custom = {
             "background": "#123456",
             "accent": "#E36A4D",
+            "icon": "#F0A020",
             "font_ui": "DejaVu Sans",
             "font_content": "Liberation Serif",
         }
@@ -65,6 +66,7 @@ class ThemeConfigurationTests(unittest.TestCase):
 
         self.assertEqual(theme["background"], "#123456")
         self.assertEqual(theme["accent"], "#E36A4D")
+        self.assertEqual(theme["icon"], "#F0A020")
         self.assertEqual(theme["surface"], TEMAS[TEMA_PADRAO]["surface"])
         self.assertIn('font-family: "DejaVu Sans"', styles)
         self.assertIn('body { font-family: "Liberation Serif"', home_css)

@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QTreeWidget,
@@ -19,6 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from _ULTILIDADES_.popups import popup_aviso
 
 
 _PICK_MARKER = "__HENNAVE_INSPECTOR_PICK__:"
@@ -506,10 +506,10 @@ class PageInspectorDock(QDockWidget):
         colors = []
         for value in (background, foreground):
             if value and not QColor.isValidColor(value):
-                QMessageBox.warning(
-                    self,
+                popup_aviso(
                     TEXTO_UI["inspect_title"],
                     TEXTO_UI["inspect_invalid_color"],
+                    self,
                 )
                 return
             colors.append(QColor(value).name(QColor.NameFormat.HexRgb) if value else "")

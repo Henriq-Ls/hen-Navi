@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from storage import BrowserStorage
+from _APPDATA_.storage import BrowserStorage
 
 
 class BrowserStorageTests(unittest.TestCase):
@@ -64,6 +64,47 @@ class BrowserStorageTests(unittest.TestCase):
         self.assertEqual(len(self.storage.get_history()), 1)
         self.storage.clear_history()
         self.assertEqual(self.storage.get_history(), [])
+
+    def test_browser_download_history_keeps_terminal_status_until_removed(self):
+        download_id = self.storage.record_browser_download(
+            "/downloads/arquivo.zip",
+            "arquivo.zip",
+            started_at=100,
+        )
+        self.assertEqual(
+            self.storage.get_browser_downloads()[0]["status"],
+            "active",
+        )
+
+        self.assertTrue(
+            self.storage.update_browser_download(
+                download_id,
+                "completed",
+                finished_at=125,
+            )
+        )
+        entry = self.storage.get_browser_downloads()[0]
+        self.assertEqual(entry["file_name"], "arquivo.zip")
+        self.assertEqual(entry["status"], "completed")
+        self.assertEqual(entry["finished_at"], 125)
+
+        self.assertTrue(self.storage.remove_browser_download(download_id))
+        self.assertEqual(self.storage.get_browser_downloads(), [])
+
+    def test_active_downloads_are_marked_interrupted_after_restart(self):
+        self.storage.record_browser_download(
+            "/downloads/parcial.zip",
+            "parcial.zip",
+            started_at=100,
+        )
+        database_path = self.storage.database_path
+        self.storage.close()
+        self.storage = BrowserStorage(database_path)
+
+        entries = self.storage.get_browser_downloads()
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["status"], "interrupted")
+        self.assertIsNotNone(entries[0]["finished_at"])
 
 
 if __name__ == "__main__":

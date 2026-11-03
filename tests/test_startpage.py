@@ -1,6 +1,6 @@
 import unittest
 
-from startpage import generate_start_page
+from _APP_.startpage import generate_start_page
 
 
 class StartPageTests(unittest.TestCase):

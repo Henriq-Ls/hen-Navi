@@ -109,10 +109,10 @@ _lock_file.setStaleLockTime(0)
 
 if not _lock_file.tryLock(100):
     # Já existe uma instância rodando
-    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtWidgets import QApplication
+    from _ULTILIDADES_.popups import popup_aviso
     _app_tmp = QApplication.instance() or QApplication(sys.argv)
-    QMessageBox.warning(
-        None,
+    popup_aviso(
         TEXTO_UI["already_open_title"],
         TEXTO_UI["already_open_message"],
     )

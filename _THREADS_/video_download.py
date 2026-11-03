@@ -6,7 +6,7 @@ from PySide6.QtCore import Signal
 
 from _CONFIGURA_ import TEXTO_UI
 from _THREADS_.thread_segura import ThreadSegura
-from video_download import VideoDownloadService
+from _SERVICOS_.video_download import VideoDownloadService
 
 
 class VideoDownloadWorker(ThreadSegura):

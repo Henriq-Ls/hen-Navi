@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from site_utils import is_valid_https_url
+from _ULTILIDADES_.site_utils import is_valid_https_url
 
 
 class BlockerSettingsDialog(QDialog):

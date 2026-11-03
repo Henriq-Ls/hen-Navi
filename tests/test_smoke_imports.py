@@ -12,8 +12,8 @@ class QtImportSmokeTests(unittest.TestCase):
         for module_name in (
             "_CONFIGURA_.temas",
             "_ULTILIDADES_.icones",
-            "theme_engine",
-            "startpage",
+            "_CONFIGURA_.theme_engine",
+            "_APP_.startpage",
             "browser",
             "_APP_.main_window",
             "_APP_.atalhos_dialog",

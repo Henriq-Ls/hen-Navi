@@ -1,7 +1,7 @@
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
-from utils import is_http_url, resolve_address
+from _ULTILIDADES_.utils import is_http_url, resolve_address
 
 
 class ResolveAddressTests(unittest.TestCase):

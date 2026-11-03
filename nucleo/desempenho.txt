@@ -1,0 +1,124 @@
+CONTEXTO PARA A PRÓXIMA IA — DESEMPENHO E ACELERAÇÃO DE HARDWARE
+
+OBJETIVO
+
+Investigar como o hen-Nave está se comportando, descobrir os gargalos reais e
+melhorar a velocidade e a fluidez sem comprometer estabilidade, segurança ou
+compatibilidade. Avaliar especificamente se o QtWebEngine está usando a GPU e
+se a aceleração de hardware ajuda neste computador. Medir antes e depois; não
+alterar flags às cegas nem assumir que GPU ligada sempre significa app mais
+rápido.
+
+ANTES DE MEXER
+
+1. Leia `nucleo/_DOC_PROJETO.txt` e confira o código atual.
+2. Consulte a documentação oficial da versão instalada do Qt 6 / QtWebEngine
+   antes de mudar configurações globais, opções de Chromium ou variáveis de
+   ambiente.
+3. Faça primeiro um diagnóstico reproduzível e registre uma linha de base.
+   Não comece desativando recursos, cache, segurança ou aceleração.
+4. Separe problemas do próprio hen-Nave de limitações do driver, do QtWebEngine,
+   do Windows, de uma sessão remota ou do site testado.
+
+ESTADO ATUAL DO PROJETO
+
+- O hen-Nave é um navegador desktop em Python, PySide6 e QtWebEngine/Chromium.
+- `main.py` cria o `QApplication`; o esquema interno do navegador é registrado
+  antes disso. Confirme na documentação oficial a ordem exigida para qualquer
+  configuração global do QtWebEngine.
+- `browser.py` cria os perfis WebEngine e configura os atributos do perfil.
+  O perfil normal já usa cache HTTP em disco; o perfil anônimo é temporário.
+  Preserve cookies, cache e isolamento atuais, salvo se uma medição demonstrar
+  que uma mudança específica é necessária.
+- O navegador mantém várias abas, downloads, bloqueador, painéis laterais e
+  workers. Meça o efeito dessas partes sem misturar as causas.
+- A barra agora tem um botão de tradução que usa o provedor de IA ativo e extrai
+  o texto visível apenas após clique. Não use o tradutor durante a linha de base
+  do navegador: latência de rede ou inferência local pode confundir a medição do
+  QtWebEngine. Se o desempenho da tradução também for investigado, meça-o como
+  cenário separado e registre se o modelo roda localmente ou na nuvem.
+- A tradução respeita o limite de texto configurado para a IA; páginas grandes
+  podem resultar em tradução parcial com aviso. A interface real ainda precisa
+  ser validada no computador do usuário. Na última execução de testes, 99 testes
+  passaram e 4 testes de Qt foram pulados porque PySide6 não estava instalado
+  neste ambiente.
+- O diagnóstico de codecs de mídia existente informa suporte a formatos; ele
+  não comprova se a renderização está acelerada pela GPU.
+- `_LOGS_/log.py` mantém o log da sessão em
+  `%APPDATA%/hen-nave/logs/LOG_GERAL.log` no Windows. Registre métricas
+  operacionais, nunca tokens, cookies, URLs completas, texto de páginas ou
+  conteúdo privado.
+- O primeiro ambiente real de validação é o Windows do usuário. Se o ambiente
+  de desenvolvimento não tiver PySide6 ou GPU, não declare o resultado como
+  validado no desktop.
+
+DIAGNÓSTICO E MÉTRICAS
+
+Colete somente o necessário para identificar gargalos:
+
+- tempo de inicialização até a janela ficar utilizável;
+- tempo de navegação, medido separadamente para cache frio e quente;
+- uso de CPU e memória do navegador e dos processos de renderização;
+- disponibilidade e estado da aceleração gráfica reportados por mecanismos
+  oficiais do QtWebEngine/Chromium;
+- fluidez ao alternar abas, rolar páginas e abrir/fechar painéis;
+- travamentos, falhas de renderização e erros do Qt/WebEngine.
+
+Use cenários repetíveis: página inicial local, uma página pública simples e uma
+página com carga gráfica/JavaScript maior. Não use páginas autenticadas ou dados
+pessoais como benchmark. Compare em condições semelhantes e repita cada cenário
+para evitar tirar conclusões de uma única execução.
+
+VISUALIZAÇÃO
+
+Se os dados justificarem, crie uma visualização local e simples. Priorize:
+
+- gráfico de tempo de navegação antes/depois;
+- gráfico de CPU e memória ao longo do tempo, se a coleta for confiável;
+- resumo do estado da GPU: ativo, indisponível ou inconclusivo, com a origem da
+  informação.
+
+Não adicione uma dependência de gráficos antes de confirmar que ela é necessária.
+Não envie dados para serviços externos. Se salvar medições, use dados agregados
+e não inclua endereços, conteúdo de páginas ou identificadores de usuário.
+
+ACELERAÇÃO DE HARDWARE
+
+- Verifique primeiro como a versão instalada do QtWebEngine informa o renderer e
+  o uso de GPU; documente também quando o resultado não puder ser determinado.
+- Confirme versão do Qt/PySide6, driver gráfico e condições da sessão Windows.
+- Não copie flags de Chromium de outros navegadores sem suporte documentado para
+  QtWebEngine. Não desative o sandbox, verificações TLS ou restrições de acesso
+  para tentar obter velocidade.
+- Só compare aceleração ligada/desligada se houver um caminho oficial e
+  reversível. Registre a configuração usada, se exige reiniciar e como voltar
+  ao padrão.
+- Preserve um fallback funcional em máquinas sem GPU compatível ou com driver
+  problemático.
+- Não mude cache ou persistência como tentativa genérica de “acelerar”; meça
+  separadamente leitura fria/quente e avalie o efeito na privacidade e no disco.
+
+PLANO DE TRABALHO
+
+1. Mapear a inicialização, criação dos perfis e carregamento das páginas.
+2. Adicionar diagnóstico local e não invasivo, com tempo, CPU/memória e estado
+   gráfico quando esses dados forem acessíveis de forma confiável.
+3. Registrar uma linha de base repetível e apresentar os resultados em tabela
+   ou gráfico.
+4. Identificar o gargalo com evidência; propor uma mudança pequena por vez.
+5. Repetir o mesmo benchmark antes/depois e testar navegação, abas, vídeo,
+   downloads, janela anônima e retomada de sessão.
+6. Manter a alteração somente se trouxer ganho mensurável e não quebrar
+   estabilidade, segurança ou compatibilidade.
+
+CRITÉRIOS DE CONCLUSÃO
+
+- O relatório explica o que foi medido, em qual máquina/versão e quais limites
+  existem nos dados.
+- É possível distinguir “GPU ativa”, “GPU indisponível” e “não foi possível
+  determinar”; não inventar certeza.
+- Qualquer ajuste tem comparação antes/depois, fallback e forma clara de
+  reverter.
+- Os testes automatizados passam e os fluxos principais são validados no
+  Windows com QtWebEngine.
+- Não declarar melhoria de desempenho sem uma medição correspondente.

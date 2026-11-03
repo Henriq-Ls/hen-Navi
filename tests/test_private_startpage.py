@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from private_startpage import (
+from _APP_.private_startpage import (
     cleanup_private_start_pages,
     create_private_start_page,
     remove_private_start_page,

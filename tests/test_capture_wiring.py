@@ -10,6 +10,9 @@ class CaptureWiringTests(unittest.TestCase):
         cls.source_text = source.read_text(encoding="utf-8")
         tree = ast.parse(cls.source_text)
         project_root = Path(__file__).resolve().parents[1]
+        cls.ai_config_text = (
+            project_root / "_APP_" / "ai_config.py"
+        ).read_text(encoding="utf-8")
         cls.window = next(
             node
             for node in tree.body
@@ -35,7 +38,9 @@ class CaptureWiringTests(unittest.TestCase):
         cls.config_text = (
             project_root / "_CONFIGURA_" / "__init__.py"
         ).read_text(encoding="utf-8")
-        cls.theme_text = (project_root / "theme_engine.py").read_text(
+        cls.theme_text = (
+            project_root / "_CONFIGURA_" / "theme_engine.py"
+        ).read_text(
             encoding="utf-8"
         )
 
@@ -100,6 +105,12 @@ class CaptureWiringTests(unittest.TestCase):
             )
         self.assertEqual(sorted(used_keys - configured_keys), [])
 
+    def test_video_codec_diagnostic_is_available_from_main_menu(self):
+        self.assertIn('TEXTO_UI["media_diagnostic"]', self.source_text)
+        self.assertIn("menu.addAction(self.media_diagnostic_action)", self.source_text)
+        self.assertIn("def check_media_codecs(self, *_)", self.source_text)
+        self.assertIn("MEDIA_CAPABILITY_SCRIPT", self.source_text)
+
     def test_custom_theme_editor_is_available_and_saved(self):
         self.assertIn('TEXTO_UI["theme_custom"]', self.source_text)
         self.assertIn('TEXTO_UI["theme_customize"]', self.source_text)
@@ -108,6 +119,12 @@ class CaptureWiringTests(unittest.TestCase):
         self.assertIn("custom_theme=self.controller.custom_theme", self.source_text)
         self.assertIn('"google": ("Google",', self.config_text)
         self.assertIn('"bing": ("Bing",', self.config_text)
+
+    def test_ai_editor_explains_key_storage_and_requires_a_model(self):
+        self.assertIn('TEXTO_UI["ai_key_saved_notice"]', self.ai_config_text)
+        self.assertIn('TEXTO_UI["ai_key_will_save"]', self.ai_config_text)
+        self.assertIn('if not payload["model"]:', self.ai_config_text)
+        self.assertIn('TEXTO_UI["ai_model_required"]', self.ai_config_text)
 
     def test_toolbar_symbols_use_the_shared_icon_module(self):
         expected = {
@@ -120,6 +137,7 @@ class CaptureWiringTests(unittest.TestCase):
             "ico_nova_aba",
             "ico_fechar_aba",
             "ico_anotacoes",
+            "ico_traduzir",
             "ico_captura",
             "ico_imagem",
             "ico_pdf",
@@ -147,6 +165,7 @@ class CaptureWiringTests(unittest.TestCase):
             "self.toolbar.addWidget(self.capture_button)",
             "self.toolbar.addWidget(self.notes_button)",
             "self.toolbar.addWidget(self.ai_button)",
+            "self.toolbar.addWidget(self.translate_button)",
         )
         positions = [self.source_text.index(marker) for marker in markers]
         self.assertEqual(positions, sorted(positions))
@@ -162,7 +181,18 @@ class CaptureWiringTests(unittest.TestCase):
             self.source_text,
         )
         self.assertIn("self.notes_button.setDefaultAction(self.notes_action)", self.source_text)
-        self.assertIn("self.ai_button.setEnabled(False)", self.source_text)
+        self.assertIn("self.ai_button.setDefaultAction(self.ai_action)", self.source_text)
+        self.assertIn(
+            "self.translate_button.clicked.connect(self.translate_current_page)",
+            self.source_text,
+        )
+        self.assertNotIn("self.ai_button.setEnabled(False)", self.source_text)
+
+    def test_translation_button_uses_configured_ai_and_existing_consent(self):
+        self.assertIn("def translate_current_page(self, *_)", self.source_text)
+        self.assertIn("self.ai_dock.request_translation()", self.source_text)
+        self.assertIn('TEXTO_UI["ai_translate_prompt"]', self.source_text)
+        self.assertIn("self._confirm_ai_cloud_send(provider)", self.source_text)
 
     def test_window_controls_form_a_fixed_right_edge_sidebar(self):
         markers = (
@@ -201,13 +231,28 @@ class CaptureWiringTests(unittest.TestCase):
     def test_side_panels_start_below_navigation_and_switch_in_one_slot(self):
         self.assertIn("self._window_content_layout = QVBoxLayout", self.source_text)
         self.assertIn("self._window_content_layout.insertWidget(0, self.toolbar)", self.source_text)
-        self.assertIn("self._body_row_layout.addWidget(self._side_panel_stack)", self.source_text)
+        self.assertIn("self._body_row_layout.addWidget(self._side_panel_container)", self.source_text)
+        self.assertIn("self._side_panel_layout.addWidget(self._side_panel_stack, 1)", self.source_text)
         self.assertIn("self._side_panel_stack.addWidget(self.notes_dock)", self.source_text)
         self.assertIn("self._side_panel_stack.addWidget(self.video_download_dock)", self.source_text)
         self.assertIn("self._side_panel_stack.addWidget(self.inspector_dock)", self.source_text)
+        self.assertIn("self._side_panel_stack.addWidget(self.ai_dock)", self.source_text)
         self.assertIn("self._side_panel_stack.setCurrentWidget(panel)", self.source_text)
+        self.assertIn("self.close_side_panel_button.clicked.connect(self._close_side_panel)", self.source_text)
+        self.assertIn("def _close_side_panel(self, *_)", self.source_text)
         self.assertNotIn("self.addDockWidget(", self.source_text)
         browser_tree = ast.parse(self.source_text)
+        build_interface = next(
+            node
+            for node in self.window.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_build_interface"
+        )
+        build_calls = {
+            node.func.attr
+            for node in ast.walk(build_interface)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        }
+        self.assertIn("_create_ai_dock", build_calls)
         qt_widgets_imports = {
             alias.name
             for node in ast.walk(browser_tree)
@@ -216,6 +261,41 @@ class CaptureWiringTests(unittest.TestCase):
             for alias in node.names
         }
         self.assertIn("QDockWidget", qt_widgets_imports)
+
+    def test_new_ollama_provider_prefills_url_and_loads_local_models(self):
+        self.assertIn(
+            "self._platform_changed(self.platform_combo.currentIndex())",
+            self.ai_config_text,
+        )
+        self.assertIn(
+            'if self.platform_combo.currentData()[0] == "ollama":',
+            self.ai_config_text,
+        )
+        self.assertIn(
+            'if platform == "ollama" and not self._loading_provider:',
+            self.ai_config_text,
+        )
+        self.assertIn('"http://localhost:11434"', self.ai_config_text)
+
+    def test_ai_request_setup_errors_stay_in_panel(self):
+        handle_ai_request = next(
+            node
+            for node in self.window.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_handle_ai_request"
+        )
+        settings_calls = [
+            node
+            for node in ast.walk(handle_ai_request)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "open_ai_settings"
+        ]
+        self.assertEqual(settings_calls, [])
+        self.assertIn(
+            "self.ai_dock.settingsRequested.connect(self.open_ai_settings)",
+            self.source_text,
+        )
 
     def test_inspector_uses_active_page_and_redacts_form_values(self):
         self.assertIn("self._sync_inspector_page()", self.source_text)

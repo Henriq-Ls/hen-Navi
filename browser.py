@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from _CONFIGURA_ import (
     ARQUIVO_BANCO,
@@ -46,6 +48,7 @@ from _CONFIGURA_ import (
 from _LOGS_ import log
 from _APPDATA_ import appdata
 from _THREADS_ import thread_manager
+from _THREADS_.ai_assistant import AiProviderWorker
 from _CONFIGURA_.temas import (
     CHAVES_CORES_PERSONALIZADAS,
     CHAVE_TEMA_PERSONALIZADO,
@@ -73,6 +76,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QDockWidget,
     QDialog,
     QFileDialog,
@@ -104,10 +108,15 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from _APP_.Navegador import BrowserTabs
 from _APP_.atalhos_dialog import ShortcutsDialog
 from _APP_.anotacoes import NotesDock
+from _APP_.ai_assistant import AiAssistantDock
+from _APP_.ai_config import AiSettingsDialog
 from _APP_.bloqueador_dialog import BlockerSettingsDialog
+from _APP_.browser_downloads import BrowserDownloadsDock
+from _APP_.dialogs import FavoritesDialog, HistoryDialog
 from _APP_.download_video import VideoDownloadDock
 from _APP_.captura import CaptureManager
 from _APP_.inspector import PageInspectorDock, inspection_pick_marker
+from _APP_.media_support import MEDIA_CAPABILITY_SCRIPT, summarize_media_capabilities
 from _APP_.theme_editor import CustomThemeDialog
 from _ULTILIDADES_.icones import (
     ico_abrir,
@@ -119,12 +128,14 @@ from _ULTILIDADES_.icones import (
     ico_bloqueador,
     ico_captura,
     ico_config,
+    ico_downloads,
     ico_endereco,
     ico_favorito,
     ico_favorito_vazio,
     ico_favoritos,
     ico_fechar_aba,
     ico_fechar_aba_hover,
+    ico_fechar,
     ico_home,
     ico_historico,
     ico_ia,
@@ -141,27 +152,40 @@ from _ULTILIDADES_.icones import (
     ico_nova_aba,
     ico_pdf,
     ico_tema,
+    ico_traduzir,
     ico_video_download,
     ico_voltar,
     ico_zoom_mais,
     ico_zoom_menos,
     ico_zoom_redefinir,
 )
-from dialogs import FavoritesDialog, HistoryDialog
-from adblock_rules import BUILTIN_BLOCKLIST, BlocklistFile, BlocklistMatcher, parse_blocklist
-from adblocker import AdBlockInterceptor, BlocklistDownloadThread
-from private_startpage import (
+from _ULTILIDADES_.popups import (
+    criar_popup,
+    popup_aviso,
+    popup_erro,
+    popup_info,
+    popup_pergunta,
+)
+from _SERVICOS_.ai_provider_store import ProviderStore, ProviderStoreError
+from _SERVICOS_.adblock_rules import (
+    BUILTIN_BLOCKLIST,
+    BlocklistFile,
+    BlocklistMatcher,
+    parse_blocklist,
+)
+from _SERVICOS_.adblocker import AdBlockInterceptor, BlocklistDownloadThread
+from _APP_.private_startpage import (
     cleanup_private_start_pages,
     create_private_start_page,
     remove_private_start_page,
     write_private_start_page,
 )
-from startpage import generate_start_page
-from storage import BrowserStorage
-from site_utils import extract_site_host, is_valid_https_url
-from utils import is_http_url, resolve_address
-from capture_utils import capture_filename
-from theme_engine import (
+from _APP_.startpage import generate_start_page
+from _APPDATA_.storage import BrowserStorage
+from _ULTILIDADES_.capture_utils import capture_filename
+from _ULTILIDADES_.site_utils import extract_site_host, is_valid_https_url
+from _ULTILIDADES_.utils import is_http_url, resolve_address
+from _CONFIGURA_.theme_engine import (
     normalizar_tema_personalizado,
     obter_tema,
     stylesheet_for_theme,
@@ -184,6 +208,7 @@ def register_custom_url_scheme():
     scheme = QWebEngineUrlScheme(scheme_name)
     scheme.setSyntax(QWebEngineUrlScheme.Syntax.HostAndPort)
     scheme.setFlags(QWebEngineUrlScheme.Flag.SecureScheme)
+    scheme.setDefaultPort(443)
     QWebEngineUrlScheme.registerScheme(scheme)
     _SCHEME_REGISTERED = True
 
@@ -374,6 +399,7 @@ class BrowserController(QObject):
         self._shutting_down = False
         self.active_downloads: dict[int, QWebEngineDownloadRequest] = {}
         self._download_profiles: dict[int, QWebEngineProfile] = {}
+        self._download_entry_ids: dict[int, int | None] = {}
         self._blocklist_threads: list[BlocklistDownloadThread] = []
 
         self.profile = QWebEngineProfile(NOME_PERFIL_WEB, self)
@@ -553,6 +579,8 @@ class BrowserController(QObject):
             if private
             else None
         )
+        if lease is not None:
+            lease.profile.downloadRequested.connect(self._on_download_requested)
         try:
             window = MainWindow(
                 controller=self,
@@ -775,10 +803,34 @@ class BrowserController(QObject):
         target_path = Path(target)
         download.setDownloadDirectory(str(target_path.parent))
         download.setDownloadFileName(target_path.name)
+        entry_id = None
+        if window.private:
+            if window.downloads_dock is not None:
+                window.downloads_dock.add_private_download(
+                    id(download),
+                    str(target_path),
+                    target_path.name,
+                )
+        else:
+            try:
+                entry_id = self.storage.record_browser_download(
+                    str(target_path),
+                    target_path.name,
+                )
+            except sqlite3.Error as error:
+                popup_erro(
+                    TEXTO_UI["browser_download_history_error_title"],
+                    TEXTO_UI["browser_download_history_error"].format(error=error),
+                    window,
+                )
+                download.cancel()
+                return
         self.active_downloads[id(download)] = download
         self._download_profiles[id(download)] = profile
+        self._download_entry_ids[id(download)] = entry_id
         download.stateChanged.connect(self._on_download_state_changed)
         download.accept()
+        self._refresh_download_panels()
         window.statusBar().showMessage(
             TEXTO_UI["download_started"].format(name=target_path.name),
             STATUS_DOWNLOAD_INICIO_MS,
@@ -795,9 +847,25 @@ class BrowserController(QObject):
         if state not in {completed, cancelled, interrupted}:
             return
 
+        download_key = id(download)
         profile = self._download_profiles.pop(id(download), None)
         self.active_downloads.pop(id(download), None)
+        entry_id = self._download_entry_ids.pop(download_key, None)
+        status = (
+            "completed"
+            if state == completed
+            else "cancelled"
+            if state == cancelled
+            else "interrupted"
+        )
+        if entry_id is not None:
+            self.storage.update_browser_download(entry_id, status)
         window = self._window_for_profile(profile) if profile is not None else None
+        if window is not None and window.downloads_dock is not None:
+            if window.private:
+                window.downloads_dock.update_private_download(download_key, status)
+            else:
+                window.downloads_dock.refresh()
         if window:
             if state == completed:
                 message = TEXTO_UI["download_completed"].format(
@@ -806,6 +874,12 @@ class BrowserController(QObject):
             else:
                 message = TEXTO_UI["download_cancelled"]
             window.statusBar().showMessage(message, STATUS_DOWNLOAD_MS)
+        self._refresh_download_panels()
+
+    def _refresh_download_panels(self):
+        for window in self.normal_windows + self.private_windows:
+            if window.downloads_dock is not None and not window.private:
+                window.downloads_dock.refresh()
 
     def _shutdown(self):
         self._shutting_down = True
@@ -925,6 +999,11 @@ class BrowserWindow(QMainWindow):
         menu_bar.hide()
         self.controller = controller
         self.private = private
+        self.ai_store = ProviderStore(appdata.pasta_config)
+        self._ai_workers: list[AiProviderWorker] = []
+        self._active_ai_worker: AiProviderWorker | None = None
+        self._ai_request_generation = 0
+        self._ai_pending_context_key = ""
         self.profile_lease = profile_lease
         self.profile = profile_lease.profile if profile_lease else controller.profile
         self._start_page_path = (
@@ -940,6 +1019,7 @@ class BrowserWindow(QMainWindow):
         self._blocked_counts_cache = self.blocker_interceptor.counts_snapshot()
         self.notes_dock: NotesDock | None = None
         self.video_download_dock: VideoDownloadDock | None = None
+        self.downloads_dock: BrowserDownloadsDock | None = None
         self._closing = False
         self._initializing = True
         self._fullscreen_active = False
@@ -996,10 +1076,36 @@ class BrowserWindow(QMainWindow):
         self._left_layout.setSpacing(0)
         self._body_row_layout.addWidget(self._left_panel, 1)
 
-        self._side_panel_stack = QStackedWidget(self._body_row)
+        self._side_panel_container = QWidget(self._body_row)
+        self._side_panel_container.setObjectName("sidePanelContainer")
+        self._side_panel_layout = QVBoxLayout(self._side_panel_container)
+        self._side_panel_layout.setContentsMargins(0, 0, 0, 0)
+        self._side_panel_layout.setSpacing(0)
+
+        self._side_panel_header = QWidget(self._side_panel_container)
+        self._side_panel_header.setObjectName("sidePanelHeader")
+        side_panel_header_layout = QHBoxLayout(self._side_panel_header)
+        side_panel_header_layout.setContentsMargins(10, 4, 6, 4)
+        self._side_panel_title = QLabel("", self._side_panel_header)
+        self._side_panel_title.setObjectName("sidePanelTitle")
+        side_panel_header_layout.addWidget(self._side_panel_title, 1)
+        self.close_side_panel_button = QToolButton(self._side_panel_header)
+        self.close_side_panel_button.setObjectName("closeSidePanelButton")
+        self.close_side_panel_button.setIcon(ico_fechar())
+        self.close_side_panel_button.setToolTip(TEXTO_UI["close_side_panel"])
+        self.close_side_panel_button.setAccessibleName(
+            TEXTO_UI["close_side_panel"]
+        )
+        self.close_side_panel_button.setAutoRaise(True)
+        self.close_side_panel_button.clicked.connect(self._close_side_panel)
+        side_panel_header_layout.addWidget(self.close_side_panel_button)
+        self._side_panel_layout.addWidget(self._side_panel_header)
+
+        self._side_panel_stack = QStackedWidget(self._side_panel_container)
         self._side_panel_stack.setObjectName("rightSidePanelStack")
-        self._side_panel_stack.hide()
-        self._body_row_layout.addWidget(self._side_panel_stack)
+        self._side_panel_layout.addWidget(self._side_panel_stack, 1)
+        self._side_panel_container.hide()
+        self._body_row_layout.addWidget(self._side_panel_container)
         self._window_content_layout.addWidget(self._body_row, 1)
         self._active_side_panel: str | None = None
 
@@ -1166,8 +1272,17 @@ class BrowserWindow(QMainWindow):
         self.ai_button.setFixedSize(QSize(28, 28))
         self.ai_button.setToolTip(TEXTO_UI["ai_placeholder"])
         self.ai_button.setAccessibleName(TEXTO_UI["ai_placeholder"])
-        self.ai_button.setEnabled(False)
         self.toolbar.addWidget(self.ai_button)
+
+        self.translate_button = QToolButton(self)
+        self.translate_button.setObjectName("translateButton")
+        self.translate_button.setIcon(ico_traduzir())
+        self.translate_button.setIconSize(QSize(16, 16))
+        self.translate_button.setFixedSize(QSize(28, 28))
+        self.translate_button.setToolTip(TEXTO_UI["translate_page"])
+        self.translate_button.setAccessibleName(TEXTO_UI["translate_page"])
+        self.translate_button.clicked.connect(self.translate_current_page)
+        self.toolbar.addWidget(self.translate_button)
 
         self.blocker_interceptor.blockedCountChanged.connect(
             self._on_blocked_count_changed,
@@ -1210,7 +1325,9 @@ class BrowserWindow(QMainWindow):
         self.notes_button.setDefaultAction(self.notes_action)
         self._create_video_download_dock()
         self.video_download_button.setDefaultAction(self.video_download_action)
+        self._create_browser_downloads_dock()
         self._create_inspector_dock()
+        self._create_ai_dock()
         self._build_capture_menu()
         self._build_settings_menu()
         self._finish_window_controls_toolbar()
@@ -1251,6 +1368,7 @@ class BrowserWindow(QMainWindow):
 
     def _add_sidebar_action_button(self, action: QAction) -> QToolButton:
         object_name = {
+            getattr(self, "downloads_action", None): "browserDownloadsButton",
             getattr(self, "inspect_action", None): "inspectPageButton",
             getattr(self, "open_app_data_action", None): "openAppDataButton",
             getattr(self, "clear_cache_action", None): "clearCacheButton",
@@ -1317,6 +1435,12 @@ class BrowserWindow(QMainWindow):
             self.open_favorites,
             atalho("favoritos"),
         )
+        self.downloads_action = self._make_action(
+            TEXTO_UI["browser_downloads_button"],
+            ico_downloads(),
+            self.toggle_browser_downloads,
+        )
+        self.downloads_action.setCheckable(True)
         self.new_window_action = self._make_action(
             TEXTO_UI["new_window"],
             ico_janela(),
@@ -1360,10 +1484,16 @@ class BrowserWindow(QMainWindow):
         )
         self.clear_history_action.setEnabled(not self.private)
         self.about_action = self._make_action(TEXTO_UI["about"], ico_info(), self.show_about)
+        self.media_diagnostic_action = self._make_action(
+            TEXTO_UI["media_diagnostic"],
+            ico_info(),
+            self.check_media_codecs,
+        )
 
         for action in (
             self.history_action,
             self.favorites_action,
+            self.downloads_action,
         ):
             menu.addAction(action)
         menu.addSeparator()
@@ -1376,6 +1506,7 @@ class BrowserWindow(QMainWindow):
         menu.addAction(self.zoom_reset_action)
         menu.addSeparator()
         menu.addAction(self.clear_history_action)
+        menu.addAction(self.media_diagnostic_action)
         menu.addAction(self.about_action)
 
         self.new_tab_action = self._make_action(
@@ -1465,6 +1596,19 @@ class BrowserWindow(QMainWindow):
             lambda _checked=False: self._toggle_side_panel("video")
         )
 
+    def _create_browser_downloads_dock(self):
+        self.downloads_dock = BrowserDownloadsDock(
+            None if self.private else self.controller.storage,
+            private=self.private,
+            parent=self._side_panel_stack,
+        )
+        self.downloads_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
+        )
+        self._side_panel_stack.addWidget(self.downloads_dock)
+        self.downloads_dock.hide()
+        self._add_sidebar_action_button(self.downloads_action)
+
     def _create_inspector_dock(self):
         self.inspector_dock = PageInspectorDock(
             self._side_panel_stack,
@@ -1492,6 +1636,45 @@ class BrowserWindow(QMainWindow):
         view = self._current_view()
         self.inspector_dock.set_page(view.page() if view else None)
 
+    def _create_ai_dock(self):
+        self.ai_dock = AiAssistantDock(self._side_panel_stack)
+        self.ai_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
+        )
+        self._side_panel_stack.addWidget(self.ai_dock)
+        self.ai_dock.hide()
+        self.ai_dock.requestRequested.connect(self._handle_ai_request)
+        self.ai_dock.cancelRequested.connect(self._cancel_ai_request)
+        self.ai_dock.settingsRequested.connect(self.open_ai_settings)
+        self.ai_action = QAction(
+            ico_ia(),
+            TEXTO_UI["ai_placeholder"],
+            self,
+        )
+        self.ai_action.setCheckable(True)
+        self.ai_action.setShortcut(QKeySequence(atalho("assistente_ia")))
+        self.ai_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
+        self.ai_action.setToolTip(TEXTO_UI["ai_placeholder"])
+        self.ai_action.triggered.connect(
+            lambda _checked=False: self._toggle_side_panel("ai")
+        )
+        self.addAction(self.ai_action)
+        self.ai_button.setDefaultAction(self.ai_action)
+        self._refresh_ai_provider()
+
+    def translate_current_page(self, *_):
+        if (
+            self._active_side_panel != "ai"
+            or not self._side_panel_container.isVisible()
+        ):
+            self._toggle_side_panel("ai")
+        else:
+            self._refresh_ai_provider()
+            self.ai_dock.set_context_key(
+                self._ai_context_key(self._current_view())
+            )
+        self.ai_dock.request_translation()
+
     def _arrange_right_docks(self):
         self.addToolBar(
             Qt.ToolBarArea.RightToolBarArea,
@@ -1517,9 +1700,17 @@ class BrowserWindow(QMainWindow):
                 self.video_download_dock,
                 getattr(self, "video_download_action", None),
             ),
+            "downloads": (
+                self.downloads_dock,
+                getattr(self, "downloads_action", None),
+            ),
             "inspector": (
                 self.inspector_dock,
                 getattr(self, "inspect_action", None),
+            ),
+            "ai": (
+                self.ai_dock,
+                getattr(self, "ai_action", None),
             ),
         }
         panel, _action = panels[panel_name]
@@ -1528,18 +1719,365 @@ class BrowserWindow(QMainWindow):
 
         if (
             self._active_side_panel == panel_name
-            and self._side_panel_stack.isVisible()
+            and self._side_panel_container.isVisible()
         ):
-            self._side_panel_stack.hide()
+            self._side_panel_container.hide()
             self._active_side_panel = None
         else:
             self._active_side_panel = panel_name
             self._side_panel_stack.setCurrentWidget(panel)
-            self._side_panel_stack.show()
+            self._side_panel_title.setText(panel.windowTitle())
+            self._side_panel_container.show()
+
+        if panel_name == "ai" and self._active_side_panel == "ai":
+            self._refresh_ai_provider()
+            view = self._current_view()
+            self.ai_dock.set_context_key(self._ai_context_key(view))
+        elif panel_name == "downloads" and self._active_side_panel == "downloads":
+            self.downloads_dock.refresh()
 
         for name, (_widget, action) in panels.items():
             if action is not None:
                 action.setChecked(name == self._active_side_panel)
+
+    def _close_side_panel(self, *_):
+        self._side_panel_container.hide()
+        self._side_panel_title.clear()
+        self._active_side_panel = None
+        for action_name in (
+            "notes_action",
+            "video_download_action",
+            "downloads_action",
+            "inspect_action",
+            "ai_action",
+        ):
+            action = getattr(self, action_name, None)
+            if action is not None:
+                action.setChecked(False)
+
+    def _ai_context_key(self, view) -> str:
+        return str(id(view)) if view is not None else "no-page"
+
+    def _refresh_ai_provider(self):
+        try:
+            provider = self.ai_store.active_provider()
+        except ProviderStoreError as error:
+            self.ai_dock.set_provider(None)
+            self.ai_dock.show_error(str(error))
+            return
+        self.ai_dock.set_provider(provider)
+
+    def open_ai_settings(self, *_):
+        dialog = AiSettingsDialog(self.ai_store, self)
+        dialog.exec()
+        self._refresh_ai_provider()
+
+    def _confirm_ai_cloud_send(self, provider: dict) -> bool:
+        if self.private:
+            message = TEXTO_UI["ai_private_cloud_consent_message"].format(
+                provider=provider["name"]
+            )
+        elif provider.get("suppress_cloud_warning"):
+            return True
+        else:
+            message = TEXTO_UI["ai_cloud_consent_message"].format(
+                provider=provider["name"]
+            )
+
+        dialog = criar_popup(
+            TEXTO_UI["ai_cloud_consent_title"],
+            message,
+            self,
+            icone=QMessageBox.Icon.Warning,
+            botoes=(
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No
+            ),
+            botao_padrao=QMessageBox.StandardButton.No,
+        )
+        checkbox = None
+        if not self.private:
+            checkbox = QCheckBox(TEXTO_UI["ai_consent_dismiss_checkbox"], dialog)
+            dialog.setCheckBox(checkbox)
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        if dialog.exec() != QMessageBox.StandardButton.Yes:
+            return False
+        if checkbox is not None and checkbox.isChecked():
+            try:
+                self.ai_store.set_cloud_warning_dismissed(provider["id"], True)
+            except ProviderStoreError:
+                # O envio foi autorizado; se não for possível salvar a preferência,
+                # o aviso voltará a aparecer na próxima solicitação.
+                pass
+        return True
+
+    def _confirm_ai_insecure_key(self, provider: dict) -> bool:
+        if (
+            not provider.get("credential_id")
+            or urlsplit(provider.get("base_url", "")).scheme.lower() != "http"
+        ):
+            return True
+        answer = popup_pergunta(
+            TEXTO_UI["ai_insecure_title"],
+            TEXTO_UI["ai_insecure_key_warning"],
+            self,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
+    def _handle_ai_request(self, question: str, summarize: bool, history):
+        if self._active_ai_worker and self._active_ai_worker.isRunning():
+            log.aviso(
+                "BrowserWindow",
+                "_handle_ai_request",
+                "solicitação ignorada: já existe uma chamada de IA em andamento",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_request_in_progress"])
+            return
+        try:
+            provider = self.ai_store.active_provider()
+        except ProviderStoreError as error:
+            log.erro("BrowserWindow", "_handle_ai_request", str(error))
+            self.ai_dock.show_error(str(error))
+            return
+        if provider is None:
+            log.aviso(
+                "BrowserWindow",
+                "_handle_ai_request",
+                "solicitação bloqueada: nenhuma conexão ativa",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_no_provider"])
+            return
+        if not provider.get("model"):
+            log.aviso(
+                "BrowserWindow",
+                "_handle_ai_request",
+                "solicitação bloqueada: modelo não selecionado",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_model_unselected"])
+            return
+        if provider.get("platform") in {"groq", "openrouter"} and not provider.get(
+            "credential_id"
+        ):
+            self.ai_dock.show_error(TEXTO_UI["ai_cloud_service_required"])
+            return
+        is_cloud = provider.get("kind") != "ollama"
+        if is_cloud and not self._confirm_ai_cloud_send(provider):
+            self.ai_dock.show_error(TEXTO_UI["ai_ready"])
+            return
+        if not self._confirm_ai_insecure_key(provider):
+            self.ai_dock.show_error(TEXTO_UI["ai_ready"])
+            return
+
+        view = self._current_view()
+        page = view.page() if view else None
+        if page is None:
+            log.aviso(
+                "BrowserWindow",
+                "_handle_ai_request",
+                "solicitação bloqueada: aba sem página WebEngine",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_no_page"])
+            return
+        context_key = self._ai_context_key(view)
+        self.ai_dock.set_context_key(context_key)
+        self._ai_request_generation += 1
+        request_generation = self._ai_request_generation
+        self._ai_pending_context_key = context_key
+        is_translation = question == TEXTO_UI["ai_translate_prompt"]
+        status = (
+            (
+                TEXTO_UI["ai_translate_local_notice"]
+                if is_translation
+                else TEXTO_UI["ai_local_notice"]
+            )
+            if not is_cloud
+            else (
+                TEXTO_UI["ai_translate_extracting"]
+                if is_translation
+                else TEXTO_UI["ai_extracting"]
+            )
+        )
+        self.ai_dock.set_busy(True, status)
+        action_name = (
+            "tradução"
+            if is_translation
+            else "resumo"
+            if summarize
+            else "pergunta"
+        )
+        log.info(
+            "BrowserWindow",
+            "_handle_ai_request",
+            f"solicitação aceita; ação={action_name}; "
+            f"plataforma={provider.get('platform', '')}; "
+            f"modelo={provider.get('model', '')}; extração da página iniciada",
+        )
+        try:
+            page.runJavaScript(
+                "document.body ? document.body.innerText : ''",
+                lambda text: self._start_ai_worker(
+                    view,
+                    provider,
+                    question,
+                    summarize,
+                    list(history or []),
+                    text,
+                    context_key,
+                    request_generation,
+                ),
+            )
+        except Exception as error:
+            log.erro(
+                "BrowserWindow",
+                "_handle_ai_request",
+                f"não foi possível iniciar a extração; tipo={type(error).__name__}",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_page_extract_failed"])
+
+    def _start_ai_worker(
+        self,
+        view,
+        provider: dict,
+        question: str,
+        summarize: bool,
+        history: list[dict[str, str]],
+        page_text,
+        context_key: str,
+        request_generation: int,
+    ):
+        if (
+            self._closing
+            or request_generation != self._ai_request_generation
+            or self.tabs.indexOf(view) < 0
+        ):
+            log.aviso(
+                "BrowserWindow",
+                "_start_ai_worker",
+                "extração descartada: janela fechando, solicitação antiga ou aba fechada",
+            )
+            return
+        self._ai_pending_context_key = ""
+        if not isinstance(page_text, str):
+            log.aviso(
+                "BrowserWindow",
+                "_start_ai_worker",
+                f"extração inválida; tipo={type(page_text).__name__}",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_no_page"])
+            return
+        if not page_text.strip():
+            log.aviso(
+                "BrowserWindow",
+                "_start_ai_worker",
+                "extração concluída sem texto legível; caracteres=0",
+            )
+            self.ai_dock.show_error(TEXTO_UI["ai_page_text_empty"])
+            return
+        log.info(
+            "BrowserWindow",
+            "_start_ai_worker",
+            f"texto da página extraído; caracteres={len(page_text)}",
+        )
+        is_translation = question == TEXTO_UI["ai_translate_prompt"]
+        if provider.get("kind") == "ollama":
+            local_notice = (
+                TEXTO_UI["ai_translate_local_notice"]
+                if is_translation
+                else TEXTO_UI["ai_local_notice"]
+            )
+            self.ai_dock.show_local_notice(local_notice)
+            self.ai_dock.set_busy(True, local_notice)
+        worker = AiProviderWorker(
+            "ask",
+            provider,
+            str(self.ai_store.config_directory),
+            page_text=page_text,
+            question=question,
+            summarize=summarize,
+            history=history,
+            parent=self,
+        )
+        worker.ai_context_key = context_key
+        worker.ai_question = question
+        worker.ai_summarize = summarize
+        self._ai_workers.append(worker)
+        self._active_ai_worker = worker
+        worker.answerReady.connect(
+            lambda answer, truncated, w=worker: self._on_ai_answer(
+                w,
+                answer,
+                truncated,
+            ),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.failed.connect(
+            lambda message, w=worker: self._on_ai_failure(w, message),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.finished.connect(
+            lambda w=worker: self._on_ai_worker_finished(w),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.start()
+
+    def _on_ai_answer(
+        self,
+        worker: AiProviderWorker,
+        answer: str,
+        truncated: bool,
+    ):
+        if self._closing:
+            log.aviso("BrowserWindow", "_on_ai_answer", "resposta descartada: janela fechando")
+            return
+        if not any(
+            self._ai_context_key(self.tabs.widget(index)) == worker.ai_context_key
+            for index in range(self.tabs.count())
+        ):
+            log.aviso("BrowserWindow", "_on_ai_answer", "resposta descartada: aba de origem fechada")
+            return
+        log.ok(
+            "BrowserWindow",
+            "_on_ai_answer",
+            f"resposta exibida; caracteres={len(answer)}; "
+            f"texto_cortado={truncated}",
+        )
+        self.ai_dock.show_answer(
+            answer,
+            question=worker.ai_question,
+            summarize=worker.ai_summarize,
+            truncated=truncated,
+            context_key=worker.ai_context_key,
+        )
+
+    def _on_ai_failure(self, worker: AiProviderWorker, message: str):
+        if self._closing:
+            return
+        log.erro(
+            "BrowserWindow",
+            "_on_ai_failure",
+            f"plataforma={worker.provider.get('platform', '')}; "
+            f"modelo={worker.provider.get('model', '')}; erro={message}",
+        )
+        self.ai_dock.show_error(
+            TEXTO_UI["ai_cancelled"] if worker.isInterruptionRequested() else message,
+            context_key=worker.ai_context_key,
+        )
+
+    def _on_ai_worker_finished(self, worker: AiProviderWorker):
+        if worker in self._ai_workers:
+            self._ai_workers.remove(worker)
+        if self._active_ai_worker is worker:
+            self._active_ai_worker = None
+
+    def _cancel_ai_request(self):
+        self._ai_request_generation += 1
+        self._ai_pending_context_key = ""
+        worker = self._active_ai_worker
+        if worker is not None and worker.isRunning():
+            worker.cancel()
+            self.ai_dock.set_busy(True, TEXTO_UI["ai_cancelled"])
+        else:
+            self.ai_dock.set_busy(False, TEXTO_UI["ai_cancelled"])
 
     def _on_inspector_visibility_changed(self, visible: bool):
         if not visible:
@@ -1550,6 +2088,9 @@ class BrowserWindow(QMainWindow):
 
     def toggle_video_download_dock(self, *_):
         self._toggle_side_panel("video")
+
+    def toggle_browser_downloads(self, *_):
+        self._toggle_side_panel("downloads")
 
     def _on_video_download_visibility_changed(self, visible: bool):
         if not visible or not self.video_download_dock:
@@ -1604,6 +2145,12 @@ class BrowserWindow(QMainWindow):
             atalho("atalhos"),
         )
         settings_menu.addAction(self.shortcuts_action)
+        self.ai_settings_action = self._make_action(
+            TEXTO_UI["ai_settings"],
+            ico_ia(),
+            self.open_ai_settings,
+        )
+        settings_menu.addAction(self.ai_settings_action)
         settings_menu.addSeparator()
         self.theme_menu = settings_menu.addMenu(
             ico_tema(),
@@ -1875,10 +2422,12 @@ class BrowserWindow(QMainWindow):
         )
 
     def _show_capture_result(self, message: str, path: str):
-        dialog = QMessageBox(self)
-        dialog.setIcon(QMessageBox.Icon.Information)
-        dialog.setWindowTitle(TEXTO_UI["capture_done_title"])
-        dialog.setText(message)
+        dialog = criar_popup(
+            TEXTO_UI["capture_done_title"],
+            message,
+            self,
+            botoes=QMessageBox.StandardButton.NoButton,
+        )
         open_folder_button = dialog.addButton(
             TEXTO_UI["capture_open_folder"],
             QMessageBox.ButtonRole.AcceptRole,
@@ -1894,10 +2443,10 @@ class BrowserWindow(QMainWindow):
             )
 
     def _show_capture_error(self, error: str):
-        QMessageBox.warning(
-            self,
+        popup_aviso(
             TEXTO_UI["capture_error_title"],
             TEXTO_UI["capture_error_message"].format(error=error),
+            self,
         )
 
     def _build_corner_button(self):
@@ -1940,7 +2489,10 @@ class BrowserWindow(QMainWindow):
             ("favorite_action", ico_favorito),
             ("shortcuts_action", ico_atalhos),
             ("notes_action", ico_anotacoes),
+            ("ai_action", ico_ia),
+            ("ai_settings_action", ico_ia),
             ("video_download_action", ico_video_download),
+            ("downloads_action", ico_downloads),
             ("inspect_action", ico_inspecionar),
             ("blocker_settings_action", ico_bloqueador),
             ("blocker_toggle_site_action", ico_bloqueador),
@@ -1956,6 +2508,8 @@ class BrowserWindow(QMainWindow):
             action = getattr(self, attribute, None)
             if action:
                 action.setIcon(factory())
+        if hasattr(self, "close_side_panel_button"):
+            self.close_side_panel_button.setIcon(ico_fechar())
         if hasattr(self, "settings_menu"):
             self.settings_menu.menuAction().setIcon(ico_config())
             self.theme_menu.menuAction().setIcon(ico_tema())
@@ -2195,6 +2749,17 @@ class BrowserWindow(QMainWindow):
         page = view.page()
         if isinstance(page, BrowserPage):
             self.controller.cancel_restore_page(page)
+        context_key = self._ai_context_key(view)
+        if self._ai_pending_context_key == context_key:
+            self._ai_request_generation += 1
+            self._ai_pending_context_key = ""
+            self.ai_dock.set_busy(False, TEXTO_UI["ai_cancelled"])
+        if (
+            self._active_ai_worker is not None
+            and getattr(self._active_ai_worker, "ai_context_key", "") == context_key
+        ):
+            self._active_ai_worker.cancel()
+        self.ai_dock.release_context(context_key)
         self.tabs.removeTab(index)
         self._dispose_view(view)
         if not self.private:
@@ -2234,6 +2799,10 @@ class BrowserWindow(QMainWindow):
         self._update_location_and_favorite()
         self._update_navigation_actions()
         self._sync_inspector_page()
+        if hasattr(self, "ai_dock"):
+            self.ai_dock.set_context_key(
+                self._ai_context_key(self._current_view())
+            )
 
     def _sync_inspector_page(self):
         inspector = getattr(self, "inspector_dock", None)
@@ -2524,12 +3093,10 @@ class BrowserWindow(QMainWindow):
     def clear_history(self, *_):
         if self.private:
             return
-        answer = QMessageBox.question(
-            self,
+        answer = popup_pergunta(
             TEXTO_UI["confirm_clear_title"],
             TEXTO_UI["confirm_clear_message"],
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            self,
         )
         if answer == QMessageBox.StandardButton.Yes:
             self.controller.storage.clear_history()
@@ -2540,10 +3107,32 @@ class BrowserWindow(QMainWindow):
             )
 
     def show_about(self, *_):
-        QMessageBox.about(
-            self,
+        popup_info(
             TEXTO_UI["about_title"],
             TEXTO_UI["about_message"].format(version=VERSAO_APP),
+            self,
+        )
+
+    def check_media_codecs(self, *_):
+        view = self._current_view()
+        if view is None:
+            popup_info(
+                TEXTO_UI["media_diagnostic_title"],
+                TEXTO_UI["media_diagnostic_no_page"],
+                self,
+            )
+            return
+        view.page().runJavaScript(
+            MEDIA_CAPABILITY_SCRIPT,
+            self._show_media_codec_report,
+        )
+
+    def _show_media_codec_report(self, capabilities):
+        values = summarize_media_capabilities(capabilities)
+        popup_info(
+            TEXTO_UI["media_diagnostic_title"],
+            TEXTO_UI["media_diagnostic_result"].format(**values),
+            self,
         )
 
     def show_find_bar(self, *_):
@@ -2621,6 +3210,12 @@ class BrowserWindow(QMainWindow):
             event.accept()
             return
         self._closing = True
+        self._ai_request_generation += 1
+        self._ai_pending_context_key = ""
+        for worker in list(self._ai_workers):
+            worker.cancel()
+        for worker in list(self._ai_workers):
+            worker.wait(2500)
         if self.notes_dock:
             self.notes_dock.save_current_note()
         self.controller.unregister_window(self)

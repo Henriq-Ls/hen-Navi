@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from storage import BrowserStorage
+from _APPDATA_.storage import BrowserStorage
 
 
 class NotesStorageTests(unittest.TestCase):

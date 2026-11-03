@@ -1,4 +1,4 @@
-hein-IDE ENV ZED
+hein-Navi
 
 # ------------------------- OBRIGATÓRIO --------------------------------
 py -3.11 -m venv .venv

@@ -23,7 +23,7 @@ from _CONFIGURA_ import (
     CHAVES_FONTES_PERSONALIZADAS,
     TEXTO_UI,
 )
-from theme_engine import normalizar_tema_personalizado, obter_tema
+from _CONFIGURA_.theme_engine import normalizar_tema_personalizado, obter_tema
 
 
 class CustomThemeDialog(QDialog):
@@ -90,11 +90,14 @@ class CustomThemeDialog(QDialog):
         self.preview_frame.setObjectName("customThemePreview")
         preview_inner = QHBoxLayout(self.preview_frame)
         self.preview_label = QLabel("hen-Nave", self.preview_frame)
+        self.preview_icon = QLabel("◆", self.preview_frame)
+        self.preview_icon.setObjectName("customThemePreviewIcon")
         self.preview_button = QPushButton(
             TEXTO_UI["theme_custom_preview_button"],
             self.preview_frame,
         )
         preview_inner.addWidget(self.preview_label)
+        preview_inner.addWidget(self.preview_icon)
         preview_inner.addStretch(1)
         preview_inner.addWidget(self.preview_button)
         preview_layout.addWidget(self.preview_frame)
@@ -163,6 +166,9 @@ class CustomThemeDialog(QDialog):
         self.preview_label.setStyleSheet(
             f"color: {theme['text']}; "
             f"font-family: \"{theme['font_ui']}\";"
+        )
+        self.preview_icon.setStyleSheet(
+            f"color: {theme['icon']}; font-size: 24px;"
         )
         self.preview_button.setStyleSheet(
             f"QPushButton {{ background: {theme['accent']}; color: {theme['text']}; "

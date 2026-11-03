@@ -1,9 +1,18 @@
 import unittest
 from unittest.mock import patch
 
-from _THREADS_.run_guard import protect_subclass_run
+try:
+    from _THREADS_.run_guard import protect_subclass_run
+    from _THREADS_.thread_segura import ThreadSegura
+except (ImportError, OSError):
+    protect_subclass_run = None
+    ThreadSegura = None
 
 
+@unittest.skipUnless(
+    protect_subclass_run and ThreadSegura,
+    "PySide6 não está instalado neste ambiente.",
+)
 class ThreadSeguraGuardTests(unittest.TestCase):
     def test_overridden_run_logs_exception_and_does_not_escape(self):
         class FakeThread:
@@ -25,12 +34,7 @@ class ThreadSeguraGuardTests(unittest.TestCase):
         self.assertIn("RuntimeError: falha simulada", details)
 
     def test_qthread_override_uses_guard_when_qt_libraries_are_available(self):
-        try:
-            from PySide6.QtCore import QCoreApplication
-
-            from _THREADS_.thread_segura import ThreadSegura
-        except (ImportError, OSError) as error:
-            self.skipTest(f"PySide6 nativo indisponível neste ambiente: {error}")
+        from PySide6.QtCore import QCoreApplication
 
         application = QCoreApplication.instance() or QCoreApplication([])
 

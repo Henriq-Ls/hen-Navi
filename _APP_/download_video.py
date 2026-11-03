@@ -37,7 +37,7 @@ from PySide6.QtWidgets import (
 
 from _THREADS_.video_download import VideoDownloadWorker
 from _ULTILIDADES_.icones import ico_abrir, ico_video_download
-from video_download import VideoDownloadService
+from _SERVICOS_.video_download import VideoDownloadService
 
 
 class VideoDownloadDock(QDockWidget):

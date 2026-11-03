@@ -12,6 +12,59 @@ Formato:
 
 ────────────────────────────────────────────────────────────────────────────────
 
-[Registre aqui qualquer bug encontrado durante o desenvolvimento]
+[IA-PAINEL] STATUS: RESOLVIDO
+Data descoberta: 2026-11-03
+Descrição: O botão/atalho de IA e ações que limpam o contexto falhavam porque
+  a janela não criava self.ai_dock.
+Como reproduzir: Abrir o navegador e tentar abrir Configurações de IA ou fechar
+  uma aba secundária; a execução antiga podia lançar AttributeError.
+Causa suspeita: _create_ai_dock existia, mas não era chamado durante
+  _build_interface.
+Solução / workaround: Criar o painel durante _build_interface antes da criação
+  das abas e manter teste de regressão para essa inicialização.
+Verificação: Testes automatizados passaram; a validação visual em Windows/Qt
+  continua pendente porque PySide6 não está disponível no ambiente de testes.
+
+[IA-OLLAMA] STATUS: RESOLVIDO
+Data descoberta: 2026-11-03
+Descrição: Um novo cadastro Ollama podia ficar sem URL base e não consultava
+  automaticamente os modelos locais.
+Como reproduzir: Abrir um novo cadastro de provedor e deixar Ollama selecionado;
+  a opção já inicial era não alterada e podia não preencher a URL pelo sinal
+  de mudança de seleção.
+Causa suspeita: O preset era aplicado somente em currentIndexChanged e a busca
+  de modelos dependia do clique manual.
+Solução / workaround: Aplicar explicitamente o preset Ollama e consultar em
+  segundo plano http://localhost:11434/api/tags ao abrir ou selecionar Ollama.
+  O botão de busca continua disponível para tentar novamente.
+Verificação: Testes automatizados com HTTP simulado passaram; não foi testado
+  um serviço Ollama real nem iniciado executável local.
+
+[IA-CONFIG-POPUP] STATUS: RESOLVIDO
+Data descoberta: 2026-11-03
+Descrição: Resumir ou enviar pergunta abria a janela de configurações quando
+  faltava provedor, modelo ou chave.
+Como reproduzir: Tentar usar o assistente com uma conexão ativa sem modelo
+  selecionado.
+Causa suspeita: _handle_ai_request mostrava o aviso e também abria
+  open_ai_settings automaticamente.
+Solução / workaround: Manter o aviso no painel e abrir configurações somente
+  pela engrenagem ou menu. O consentimento para envio à nuvem continua separado.
+Verificação: Teste de regressão confirma que a requisição não abre o diálogo;
+  a validação visual no Windows/Qt continua pendente.
+
+[VIDEO-CODECS] STATUS: INVESTIGANDO
+Data descoberta: 2026-11-03
+Descrição: Vídeos HTML5 de vários sites não reproduzem; o QtWebEngine pode abrir
+  uma página de mídia direta com controles mínimos, mas sem imagem.
+Como reproduzir: Abrir um vídeo em sites que não sejam YouTube e tentar iniciar
+  a reprodução.
+Causa suspeita: O QtWebEngine só reproduz MP4/H.264 quando esses codecs foram
+  incluídos na compilação. A configuração atual não compila nem valida o Qt.
+Solução / workaround: Adicionado diagnóstico local no menu para consultar
+  H.264/MP4, AAC, VP9, AV1 e MediaSource. Executar no Windows e decidir o próximo
+  passo conforme o resultado; não há plugin HTML/Flash a instalar.
+Verificação: Testes da função de diagnóstico passaram; reprodução real no
+  Windows ainda não verificada.
 
 ════════════════════════════════════════════════════════════════════════════════

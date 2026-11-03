@@ -18,14 +18,14 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
+from _ULTILIDADES_.popups import popup_aviso, popup_info
 
-from site_utils import normalize_host
+from _ULTILIDADES_.site_utils import normalize_host
 
 
 class NotesDock(QDockWidget):
@@ -166,14 +166,14 @@ class NotesDock(QDockWidget):
             sections.append(TEXTO_UI["notes_export_empty"])
         try:
             Path(target).write_text("\n\n".join(sections) + "\n", encoding="utf-8")
-            QMessageBox.information(
-                self,
+            popup_info(
                 TEXTO_UI["notes_export_done_title"],
                 TEXTO_UI["notes_export_done"],
+                self,
             )
         except OSError as error:
-            QMessageBox.warning(
-                self,
+            popup_aviso(
                 TEXTO_UI["notes_export_title"],
                 TEXTO_UI["notes_export_error"].format(error=error),
+                self,
             )

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from video_download import VideoDownloadService
+from _SERVICOS_.video_download import VideoDownloadService
 
 
 class FakeYoutubeDL:
@@ -255,10 +255,10 @@ class VideoDownloadServiceTests(unittest.TestCase):
             executable.touch()
             with (
                 patch(
-                    "video_download.CAMINHOS_FFMPEG",
+                    "_SERVICOS_.video_download.CAMINHOS_FFMPEG",
                     (Path(temporary) / "FFmpeg",),
                 ),
-                patch("video_download.shutil.which", return_value=None),
+                patch("_SERVICOS_.video_download.shutil.which", return_value=None),
             ):
                 found = self.service._localizar_ffmpeg()
         self.assertEqual(found, executable)

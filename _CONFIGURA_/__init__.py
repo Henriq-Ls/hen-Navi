@@ -40,7 +40,7 @@ else:
 # ══════════════════════════════════════════════════════════════════════════════
 # APLICAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
-VERSAO_APP  = "v0.2.0"
+VERSAO_APP  = "v0.3.0"
 TITULO_APP  = "hen-Nave"
 TEMA_QT     = "Fusion"             # tema base do Qt
 
@@ -103,6 +103,7 @@ ATALHOS = (
     {"id": "janela_anonima", "categoria": "Janelas", "atalho": "Ctrl+Shift+N", "descricao": "Abre uma nova janela anônima."},
     {"id": "bloqueador_site", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+B", "descricao": "Ativa ou desativa o bloqueio neste site."},
     {"id": "anotacoes", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+E", "descricao": "Mostra ou oculta as anotações do site."},
+    {"id": "assistente_ia", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+Y", "descricao": "Abre o assistente para resumir ou perguntar sobre a página atual."},
     {"id": "atalhos", "categoria": "Ferramentas", "atalho": "F1", "descricao": "Abre esta lista de atalhos."},
     {"id": "appdata", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+D", "descricao": "Abre a pasta de dados do hen-Nave."},
 )
@@ -146,6 +147,16 @@ CAPTURA_INTERVALO_REPINTURA_MS = 120
 CAPTURA_PASTA = "hen-Nave"
 DEBOUNCE_ANOTACOES_MS = 800
 LARGURA_DOCK_ANOTACOES = 360
+LARGURA_DOCK_IA = 380
+LIMITE_CARACTERES_PAGINA_IA_MINIMO = 1000
+LIMITE_CARACTERES_PAGINA_IA = 12000
+LIMITE_CARACTERES_PAGINA_IA_MAXIMO = 100000
+ETAPA_LIMITE_CARACTERES_PAGINA_IA = 1000
+TIMEOUT_REQUISICAO_IA_SEGUNDOS = 60
+LIMITE_RESPOSTA_IA_BYTES = 8 * 1024 * 1024
+LIMITE_HISTORICO_IA_MENSAGENS = 8
+LIMITE_MENSAGEM_HISTORICO_IA_CARACTERES = 4000
+LIMITE_TOKENS_RESPOSTA_IA = 1200
 STATUS_CURTO_MS = 3000
 STATUS_DOWNLOAD_INICIO_MS = 5000
 STATUS_CARREGAMENTO_MS = 3500
@@ -565,6 +576,9 @@ TEXTO_UI = {
     "wait": "Aguarde...",
     "confirm": "Confirmar",
     "cancel": "Cancelar",
+    "ok": "OK",
+    "yes": "Sim",
+    "no": "Não",
     "already_open_title": "Já está aberto",
     "already_open_message": "O aplicativo já está em execução.",
     "back": "Voltar",
@@ -617,7 +631,90 @@ TEXTO_UI = {
     "inspect_invalid_color": "Informe cores válidas, por exemplo #334455.",
     "inspect_update_success": "Alteração temporária aplicada à página.",
     "inspect_update_error": "O elemento não está mais disponível na página.",
-    "ai_placeholder": "Inteligência Artificial (em desenvolvimento)",
+    "ai_placeholder": "Assistente de página",
+    "ai_title": "Assistente da página",
+    "translate_page": "Traduzir página para português",
+    "ai_settings": "Inteligência Artificial",
+    "ai_settings_title": "Conexões de Inteligência Artificial",
+    "ai_no_provider": "Nenhum provedor ativo. Use a engrenagem para configurar a IA.",
+    "ai_model_unselected": "Nenhum modelo selecionado. Abra as configurações de IA, escolha um modelo e salve.",
+    "ai_local_badge": "Local",
+    "ai_cloud_badge": "Nuvem",
+    "ai_ready": "Só envia o texto da página após uma ação sua.",
+    "ai_extracting": "Lendo o texto visível da página atual…",
+    "ai_translate_extracting": "Lendo o texto da página antes de traduzir…",
+    "ai_translating": "Traduzindo a página para português…",
+    "ai_translate_local_notice": "Traduzindo pelo modelo local; o texto não sai deste computador.",
+    "ai_translate_prompt": (
+        "Traduza o texto visível da página para português do Brasil. Detecte o idioma "
+        "de origem, preserve títulos, parágrafos, listas, números e nomes próprios. "
+        "Não resuma nem acrescente comentários; retorne somente a tradução."
+    ),
+    "ai_translation_done": "Tradução concluída.",
+    "ai_response_placeholder": "A resposta aparecerá aqui em texto simples.",
+    "ai_question_placeholder": "Pergunte algo sobre esta página",
+    "ai_summarize": "Resumir página",
+    "ai_send": "Enviar",
+    "ai_cancel": "Cancelar",
+    "ai_copy": "Copiar",
+    "ai_clear": "Limpar",
+    "ai_truncated": "O texto da página foi cortado no limite configurado.",
+    "ai_local_notice": "A solicitação vai para o serviço local configurado.",
+    "ai_enter_question": "Digite uma pergunta sobre a página.",
+    "ai_copied": "Resposta copiada.",
+    "ai_cleared": "Conversa temporária limpa.",
+    "ai_add": "Adicionar",
+    "ai_edit": "Editar",
+    "ai_remove": "Remover",
+    "ai_activate": "Ativar selecionado",
+    "ai_remove_title": "Remover conexão",
+    "ai_remove_confirm": "Remover a conexão “{name}” e sua chave do keyring?",
+    "ai_add_title": "Adicionar conexão de IA",
+    "ai_edit_title": "Editar conexão de IA",
+    "ai_name_label": "Nome",
+    "ai_platform_label": "Provedor ou protocolo",
+    "ai_base_url_label": "URL base",
+    "ai_base_url_placeholder": "https://api.exemplo.com/v1",
+    "ai_key_label": "Chave/token",
+    "ai_key_placeholder": "Vazio mantém a chave já salva",
+    "ai_key_saved_notice": "Chave registrada no cofre seguro do sistema; campo vazio mantém a chave.",
+    "ai_key_not_saved": "Nenhuma chave registrada para esta conexão.",
+    "ai_key_will_save": "A chave será guardada no cofre seguro do sistema ao salvar.",
+    "ai_key_will_remove": "A chave guardada será removida ao salvar.",
+    "ai_remove_key": "Remover a chave guardada",
+    "ai_model_label": "Modelo",
+    "ai_model_placeholder": "Busque, selecione ou informe um modelo",
+    "ai_model_required": "Escolha um modelo antes de salvar. Se não aparecer, informe o identificador manualmente.",
+    "ai_fetch_models": "Buscar modelos",
+    "ai_test_connection": "Testar conexão",
+    "ai_page_limit": "Máximo de texto da página",
+    "ai_request_in_progress": "A solicitação anterior ainda está em andamento. Aguarde a resposta.",
+    "ai_page_extract_failed": "Não consegui ler o texto desta página. Recarregue-a e tente novamente.",
+    "ai_page_text_empty": "Não encontrei texto legível nesta página para enviar à IA.",
+    "ai_default_ollama_name": "Ollama local",
+    "ai_connecting": "Testando conexão…",
+    "ai_models_found": "{count} modelo(s) encontrado(s).",
+    "ai_models_empty": "A API respondeu, mas não listou modelos. Informe o identificador manualmente.",
+    "ai_insecure_title": "Conexão sem TLS",
+    "ai_insecure_key_warning": (
+        "Esta URL usa HTTP. A chave será enviada sem criptografia para o destino "
+        "local configurado. Continue somente se você confia nessa rede."
+    ),
+    "ai_cloud_consent_title": "Enviar texto para provedor externo?",
+    "ai_cloud_consent_message": (
+        "O texto visível da página atual será enviado ao serviço externo "
+        "“{provider}”. Confira a política de dados desse serviço antes de continuar."
+    ),
+    "ai_private_cloud_consent_message": (
+        "Esta janela é anônima. O texto visível da página será enviado ao serviço "
+        "externo “{provider}”. A confirmação será solicitada em cada uso; confira "
+        "a política de dados do serviço."
+    ),
+    "ai_consent_dismiss_checkbox": "Não mostrar novamente para esta conexão em janelas normais",
+    "ai_cloud_service_required": "Cadastre e salve a chave nas configurações de IA antes de enviar.",
+    "ai_no_page": "Não foi possível obter o texto da página atual.",
+    "ai_cancelled": "Solicitação cancelada.",
+    "ai_shortcut_description": "Abre o assistente para resumir ou perguntar sobre a página atual.",
     "ready": "Pronto",
     "history": "Histórico",
     "new_window": "Nova janela",
@@ -645,11 +742,53 @@ TEXTO_UI = {
     "download_started": "Baixando: {name}",
     "download_completed": "Download concluído: {name}",
     "download_cancelled": "Download cancelado ou interrompido",
+    "browser_downloads_title": "Downloads",
+    "browser_downloads_button": "Downloads",
+    "close_side_panel": "Fechar painel",
+    "browser_downloads_notice": "Os downloads comuns ficam salvos neste histórico.",
+    "browser_downloads_private_notice": (
+        "Downloads desta janela anônima aparecem somente durante esta sessão."
+    ),
+    "browser_downloads_empty": "Nenhum download para mostrar.",
+    "browser_downloads_file": "Arquivo",
+    "browser_downloads_status": "Estado",
+    "browser_downloads_date": "Iniciado em",
+    "browser_downloads_open": "Abrir arquivo",
+    "browser_downloads_open_folder": "Abrir pasta",
+    "browser_downloads_remove": "Remover da lista",
+    "browser_download_state_active": "Em andamento",
+    "browser_download_state_completed": "Concluído",
+    "browser_download_state_cancelled": "Cancelado",
+    "browser_download_state_interrupted": "Interrompido",
+    "browser_download_state_unknown": "Desconhecido",
+    "browser_download_not_completed": "Este download ainda não foi concluído.",
+    "browser_download_file_missing": "O arquivo não foi encontrado no local salvo.",
+    "browser_download_folder_missing": "A pasta do download não foi encontrada.",
+    "browser_download_open_failed": "Não foi possível abrir este local.",
+    "browser_download_history_error_title": "Falha no histórico de downloads",
+    "browser_download_history_error": (
+        "Não foi possível salvar o download no histórico. "
+        "O download foi cancelado.\n\nDetalhes: {error}"
+    ),
     "favorite_added": "Favorito adicionado",
     "favorite_removed": "Favorito removido",
     "history_cleared": "Histórico removido",
     "about_title": "Sobre o hen-Nave",
     "about_message": "hen-Nave {version}\n\nNavegador desktop em Python, PySide6 e QtWebEngine.",
+    "media_diagnostic": "Testar suporte a vídeo",
+    "media_diagnostic_title": "Diagnóstico de mídia",
+    "media_diagnostic_no_page": "Não há uma página ativa para consultar.",
+    "media_diagnostic_result": (
+        "Suporte informado pelo QtWebEngine:\n"
+        "H.264 / MP4: {h264}\n"
+        "AAC / MP4: {aac}\n"
+        "VP9 / WebM: {vp9}\n"
+        "AV1 / MP4: {av1}\n"
+        "MediaSource: {media_source}\n"
+        "H.264 em MediaSource: {mse_h264}\n\n"
+        "O teste consulta apenas formatos anunciados pelo navegador; "
+        "não lê nem envia o conteúdo da página."
+    ),
     "confirm_clear_title": "Limpar histórico",
     "confirm_clear_message": "Remover todo o histórico salvo neste computador?",
     "history_search_label": "Pesquisar no histórico",
@@ -686,6 +825,7 @@ TEXTO_UI = {
     "theme_color_border": "Bordas",
     "theme_color_border_strong": "Bordas fortes",
     "theme_color_text": "Texto principal",
+    "theme_color_icon": "Ícones e símbolos",
     "theme_color_text_secondary": "Texto secundário",
     "theme_color_muted": "Texto discreto",
     "theme_color_accent": "Cor de destaque",

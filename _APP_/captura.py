@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QImage, QPainter
 
 from _THREADS_.thread_segura import ThreadSegura
-from capture_utils import capture_bounds, capture_slices
+from _ULTILIDADES_.capture_utils import capture_bounds, capture_slices
 
 
 class _ImageSaveThread(ThreadSegura):

@@ -1,5 +1,0 @@
-# O usuário instala os executáveis locais do FFmpeg nesta pasta.
-/FFmpeg/
-/FFMPEG/
-__pycache__/
-*.py[cod]

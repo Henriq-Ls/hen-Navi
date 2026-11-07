@@ -1,0 +1,1 @@
+- [Uso de dados móveis](uso-dados-moveis.md) — o modo econômico deve priorizar reduzir tráfego em conexões móveis limitadas.

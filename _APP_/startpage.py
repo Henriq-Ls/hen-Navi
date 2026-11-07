@@ -11,7 +11,6 @@ from urllib.parse import urlsplit
 from _CONFIGURA_ import (
     CORES_DOMINIO,
     CSS_PAGINA_INICIAL,
-    ESQUEMA_INTERNO,
     IDIOMA_UI,
     LOGO_SIMB,
     TEMA_PADRAO,
@@ -58,16 +57,42 @@ def _card(item: dict, index: int) -> str:
     title = str(item.get("title") or domain)
     color_index = sum(ord(character) for character in domain.lower()) % len(CORES_DOMINIO)
     color = CORES_DOMINIO[color_index]
-    initial = html.escape((domain[:1] or "?").upper())
+    display_domain = domain[4:] if domain.lower().startswith("www.") else domain
+    initial = html.escape((display_domain[:1] or "?").upper())
     safe_title = html.escape(title, quote=True)
     safe_domain = html.escape(domain, quote=True)
     safe_url = html.escape(url, quote=True)
+    favicon = _safe_favicon(item.get("favicon"))
+    badge_content = (
+        f'<img class="favicon" src="{html.escape(favicon, quote=True)}" alt="">'
+        if favicon
+        else initial
+    )
     return (
-        f'<a class="card" href="{safe_url}">'
-        f'<span class="letter" style="background:{color}">{initial}</span>'
+        f'<a class="card" href="{safe_url}" target="_blank" rel="noopener noreferrer">'
+        f'<span class="letter" style="background:{color}">{badge_content}</span>'
         f'<span class="card-copy"><span class="name">{safe_title}</span>'
         f'<span class="domain">{safe_domain}</span></span></a>'
     )
+
+
+def _safe_favicon(value: object) -> str:
+    prefix = "data:image/png;base64,"
+    if not isinstance(value, str) or not value.startswith(prefix):
+        return ""
+    encoded = value[len(prefix):]
+    if not encoded or len(encoded) > 350_000:
+        return ""
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except (ValueError, base64.binascii.Error):
+        return ""
+    if (
+        len(image_bytes) > 256_000
+        or not image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+    ):
+        return ""
+    return value
 
 
 def generate_start_page(
@@ -125,7 +150,7 @@ def generate_start_page(
       <h1>{html.escape(TEXTO_UI["browser_name"])}</h1>
       <p class="subtitle">{html.escape(TEXTO_UI["home_subtitle"])}</p>
     </header>
-    <form class="search" action="{ESQUEMA_INTERNO}://search" method="get">
+    <form class="search" method="get">
       <input type="search" name="q" placeholder="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}"
              aria-label="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}" autofocus>
       <button type="submit">{html.escape(TEXTO_UI["search"])}</button>

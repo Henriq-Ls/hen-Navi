@@ -263,6 +263,30 @@ class VideoDownloadServiceTests(unittest.TestCase):
                 found = self.service._localizar_ffmpeg()
         self.assertEqual(found, executable)
 
+    def test_finds_ffmpeg_next_to_a_frozen_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app_folder = Path(temporary)
+            executable = app_folder / "hen-nave.exe"
+            executable.touch()
+            ffmpeg_folder = app_folder / "FFmpeg" / "bin"
+            ffmpeg_folder.mkdir(parents=True)
+            ffmpeg = ffmpeg_folder / "ffmpeg.exe"
+            ffmpeg.touch()
+
+            with (
+                patch("_SERVICOS_.video_download.sys.executable", str(executable)),
+                patch(
+                    "_SERVICOS_.video_download.sys.frozen",
+                    True,
+                    create=True,
+                ),
+                patch("_SERVICOS_.video_download.CAMINHOS_FFMPEG", ()),
+                patch("_SERVICOS_.video_download.shutil.which", return_value=None),
+            ):
+                found = self.service._localizar_ffmpeg()
+
+        self.assertEqual(found, ffmpeg)
+
 
 if __name__ == "__main__":
     unittest.main()

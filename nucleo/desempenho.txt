@@ -11,14 +11,14 @@ rápido.
 
 ANTES DE MEXER
 
-1. Leia `nucleo/_DOC_PROJETO.txt` e confira o código atual.
-2. Consulte a documentação oficial da versão instalada do Qt 6 / QtWebEngine
-   antes de mudar configurações globais, opções de Chromium ou variáveis de
-   ambiente.
-3. Faça primeiro um diagnóstico reproduzível e registre uma linha de base.
-   Não comece desativando recursos, cache, segurança ou aceleração.
-4. Separe problemas do próprio hen-Nave de limitações do driver, do QtWebEngine,
-   do Windows, de uma sessão remota ou do site testado.
+- [ ] Leia `nucleo/_DOC_PROJETO.txt` e confira o código atual.
+- [ ] Consulte a documentação oficial da versão instalada do Qt 6 / QtWebEngine
+  antes de mudar configurações globais, opções de Chromium ou variáveis de
+  ambiente.
+- [ ] Faça primeiro um diagnóstico reproduzível e registre uma linha de base.
+  Não comece desativando recursos, cache, segurança ou aceleração.
+- [ ] Separe problemas do próprio hen-Nave de limitações do driver, do QtWebEngine,
+  do Windows, de uma sessão remota ou do site testado.
 
 ESTADO ATUAL DO PROJETO
 
@@ -39,9 +39,8 @@ ESTADO ATUAL DO PROJETO
   cenário separado e registre se o modelo roda localmente ou na nuvem.
 - A tradução respeita o limite de texto configurado para a IA; páginas grandes
   podem resultar em tradução parcial com aviso. A interface real ainda precisa
-  ser validada no computador do usuário. Na última execução de testes, 99 testes
-  passaram e 4 testes de Qt foram pulados porque PySide6 não estava instalado
-  neste ambiente.
+  ser validada no computador do usuário. Os testes que exigem PySide6 também
+  precisam ser executados em um ambiente com essa dependência instalada.
 - O diagnóstico de codecs de mídia existente informa suporte a formatos; ele
   não comprova se a renderização está acelerada pela GPU.
 - `_LOGS_/log.py` mantém o log da sessão em
@@ -56,26 +55,31 @@ DIAGNÓSTICO E MÉTRICAS
 
 Colete somente o necessário para identificar gargalos:
 
-- tempo de inicialização até a janela ficar utilizável;
-- tempo de navegação, medido separadamente para cache frio e quente;
-- uso de CPU e memória do navegador e dos processos de renderização;
-- disponibilidade e estado da aceleração gráfica reportados por mecanismos
-  oficiais do QtWebEngine/Chromium;
-- fluidez ao alternar abas, rolar páginas e abrir/fechar painéis;
-- travamentos, falhas de renderização e erros do Qt/WebEngine.
+- [ ] Tempo de inicialização até a janela ficar utilizável.
+- [ ] Tempo de navegação, medido separadamente para cache frio e quente.
+- [ ] Uso de CPU e memória do navegador e dos processos de renderização.
+- [ ] Disponibilidade e estado da aceleração gráfica reportados por mecanismos
+  oficiais do QtWebEngine/Chromium.
+- [ ] Fluidez ao alternar abas, rolar páginas e abrir/fechar painéis.
+- [ ] Travamentos, falhas de renderização e erros do Qt/WebEngine.
 
-Use cenários repetíveis: página inicial local, uma página pública simples e uma
-página com carga gráfica/JavaScript maior. Não use páginas autenticadas ou dados
-pessoais como benchmark. Compare em condições semelhantes e repita cada cenário
-para evitar tirar conclusões de uma única execução.
+Use cenários repetíveis:
+
+- [ ] Página inicial local.
+- [ ] Página pública simples.
+- [ ] Página com carga gráfica/JavaScript maior.
+- [ ] Repetir cada cenário em condições semelhantes para evitar conclusões de
+  uma única execução.
+
+Não use páginas autenticadas ou dados pessoais como benchmark.
 
 VISUALIZAÇÃO
 
 Se os dados justificarem, crie uma visualização local e simples. Priorize:
 
-- gráfico de tempo de navegação antes/depois;
-- gráfico de CPU e memória ao longo do tempo, se a coleta for confiável;
-- resumo do estado da GPU: ativo, indisponível ou inconclusivo, com a origem da
+- [ ] Gráfico de tempo de navegação antes/depois.
+- [ ] Gráfico de CPU e memória ao longo do tempo, se a coleta for confiável.
+- [ ] Resumo do estado da GPU: ativo, indisponível ou inconclusivo, com a origem da
   informação.
 
 Não adicione uma dependência de gráficos antes de confirmar que ela é necessária.
@@ -84,41 +88,44 @@ e não inclua endereços, conteúdo de páginas ou identificadores de usuário.
 
 ACELERAÇÃO DE HARDWARE
 
-- Verifique primeiro como a versão instalada do QtWebEngine informa o renderer e
+- [ ] Verifique primeiro como a versão instalada do QtWebEngine informa o renderer e
   o uso de GPU; documente também quando o resultado não puder ser determinado.
-- Confirme versão do Qt/PySide6, driver gráfico e condições da sessão Windows.
+- [ ] Confirme versão do Qt/PySide6, driver gráfico e condições da sessão Windows.
 - Não copie flags de Chromium de outros navegadores sem suporte documentado para
   QtWebEngine. Não desative o sandbox, verificações TLS ou restrições de acesso
   para tentar obter velocidade.
-- Só compare aceleração ligada/desligada se houver um caminho oficial e
+- [ ] Só compare aceleração ligada/desligada se houver um caminho oficial e
   reversível. Registre a configuração usada, se exige reiniciar e como voltar
   ao padrão.
-- Preserve um fallback funcional em máquinas sem GPU compatível ou com driver
+- [ ] Preserve um fallback funcional em máquinas sem GPU compatível ou com driver
   problemático.
-- Não mude cache ou persistência como tentativa genérica de “acelerar”; meça
-  separadamente leitura fria/quente e avalie o efeito na privacidade e no disco.
+- [ ] Meça separadamente leitura fria/quente antes de considerar mudanças de cache
+  ou persistência e avalie os efeitos na privacidade e no disco.
 
 PLANO DE TRABALHO
 
-1. Mapear a inicialização, criação dos perfis e carregamento das páginas.
-2. Adicionar diagnóstico local e não invasivo, com tempo, CPU/memória e estado
-   gráfico quando esses dados forem acessíveis de forma confiável.
-3. Registrar uma linha de base repetível e apresentar os resultados em tabela
-   ou gráfico.
-4. Identificar o gargalo com evidência; propor uma mudança pequena por vez.
-5. Repetir o mesmo benchmark antes/depois e testar navegação, abas, vídeo,
-   downloads, janela anônima e retomada de sessão.
-6. Manter a alteração somente se trouxer ganho mensurável e não quebrar
-   estabilidade, segurança ou compatibilidade.
+Marque cada caixa somente depois de concluir e validar o item. Deixe pendências
+desmarcadas.
+
+- [ ] Mapear a inicialização, criação dos perfis e carregamento das páginas.
+- [ ] Adicionar diagnóstico local e não invasivo, com tempo, CPU/memória e estado
+  gráfico quando esses dados forem acessíveis de forma confiável.
+- [ ] Registrar uma linha de base repetível e apresentar os resultados em tabela
+  ou gráfico.
+- [ ] Identificar o gargalo com evidência; propor uma mudança pequena por vez.
+- [ ] Repetir o mesmo benchmark antes/depois e testar navegação, abas, vídeo,
+  downloads, janela anônima e retomada de sessão.
+- [ ] Manter a alteração somente se trouxer ganho mensurável e não quebrar
+  estabilidade, segurança ou compatibilidade.
 
 CRITÉRIOS DE CONCLUSÃO
 
-- O relatório explica o que foi medido, em qual máquina/versão e quais limites
+- [ ] O relatório explica o que foi medido, em qual máquina/versão e quais limites
   existem nos dados.
-- É possível distinguir “GPU ativa”, “GPU indisponível” e “não foi possível
+- [ ] É possível distinguir “GPU ativa”, “GPU indisponível” e “não foi possível
   determinar”; não inventar certeza.
-- Qualquer ajuste tem comparação antes/depois, fallback e forma clara de
+- [ ] Qualquer ajuste tem comparação antes/depois, fallback e forma clara de
   reverter.
-- Os testes automatizados passam e os fluxos principais são validados no
+- [ ] Os testes automatizados passam e os fluxos principais são validados no
   Windows com QtWebEngine.
-- Não declarar melhoria de desempenho sem uma medição correspondente.
+- [ ] Só declarar melhoria de desempenho quando houver medição correspondente.

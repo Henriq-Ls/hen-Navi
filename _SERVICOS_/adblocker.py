@@ -17,18 +17,29 @@ from _SERVICOS_.adblock_rules import BlocklistMatcher
 from _ULTILIDADES_.site_utils import extract_site_host, normalize_host
 
 
+_DATA_SAVER_RESOURCE_TYPES = frozenset(
+    {
+        QWebEngineUrlRequestInfo.ResourceType.ResourceTypeImage,
+        QWebEngineUrlRequestInfo.ResourceType.ResourceTypeMedia,
+        QWebEngineUrlRequestInfo.ResourceType.ResourceTypePrefetch,
+    }
+)
+
+
 class AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
     """Bloqueia sub-recursos e mantém contagens por site com proteção de lock."""
 
     blockedCountChanged = Signal(str, int)
     siteEnabledChanged = Signal(str, bool)
     enabledChanged = Signal(bool)
+    dataSaverChanged = Signal(bool)
 
     def __init__(
         self,
         matcher: BlocklistMatcher,
         *,
         enabled: bool = True,
+        data_saver_enabled: bool = False,
         exceptions=(),
         parent=None,
     ):
@@ -36,6 +47,7 @@ class AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
         self._matcher = matcher
         self._lock = Lock()
         self._enabled = bool(enabled)
+        self._data_saver_enabled = bool(data_saver_enabled)
         self._exceptions = {
             host
             for value in exceptions
@@ -54,6 +66,18 @@ class AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
             self._enabled = value
         if changed:
             self.enabledChanged.emit(value)
+
+    def is_data_saver_enabled(self) -> bool:
+        with self._lock:
+            return self._data_saver_enabled
+
+    def set_data_saver_enabled(self, enabled: bool) -> None:
+        value = bool(enabled)
+        with self._lock:
+            changed = self._data_saver_enabled != value
+            self._data_saver_enabled = value
+        if changed:
+            self.dataSaverChanged.emit(value)
 
     def site_is_enabled(self, host: str) -> bool:
         site = normalize_host(host, strip_www=True)
@@ -108,7 +132,15 @@ class AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
 
             with self._lock:
                 enabled = self._enabled
+                data_saver_enabled = self._data_saver_enabled
                 exceptions = frozenset(self._exceptions)
+            if (
+                data_saver_enabled
+                and resource_type in _DATA_SAVER_RESOURCE_TYPES
+            ):
+                info.block(True)
+                return
+
             request_url = info.requestUrl().toString()
             if not self._matcher.should_block(
                 request_url,

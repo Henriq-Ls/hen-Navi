@@ -135,6 +135,7 @@ ARQUIVO_LOCK = "hen-nave.lock"
 NOME_PERFIL_WEB = "hen-nave"
 CHAVE_BLOQUEADOR_ATIVO = "bloqueador_ativo"
 CHAVE_URL_LISTA_BLOQUEIO = "lista_bloqueio_url"
+CHAVE_ECONOMIA_DADOS = "economia_dados_ativa"
 URL_LISTA_BLOQUEIO_PADRAO = ""
 SEGUNDOS_DEDUP_HISTORICO = 5
 LIMITE_RECENTES_INICIO = 8
@@ -356,7 +357,12 @@ section {{ margin: 0 0 36px; }}
 .card:hover {{ background: var(--card-hover); transform: translateY(-2px); }}
 .letter {{
     flex: 0 0 40px; width: 40px; height: 40px; display: grid; place-items: center;
+    position: relative; overflow: hidden;
     border-radius: 12px; color: white; font-size: 18px; font-weight: 800;
+}}
+.favicon {{
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    padding: 5px; object-fit: contain; background: #fff;
 }}
 .card-copy {{ min-width: 0; }}
 .name, .domain {{ display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
@@ -388,7 +394,6 @@ BRANCO         = "#EDEEF0"
 AMARELO        = "#FFC107"
 AMBAR          = "#E0A800"
 COR_FAVORITO   = "#FFC857"
-COR_FAVORITO_VAZIO = "#FFFFFF"
 VERDE          = "#4ec994"
 TURQUESA       = "#00C2A8"
 AZUL_CLARO     = "#2196F3"
@@ -559,18 +564,78 @@ IDIOMA_UI = "pt-BR"
 FORMATO_DATA_HISTORICO = "%d/%m/%Y %H:%M"
 TEXTO_UI = {
     "browser_name": "hen-Nave",
-    "home_title": "hen-Nave — Início",
+    "main_tab": "Principal",
+    "permission_request_title": "Permissão do site",
+    "permission_request_message": (
+        "O site {origin} quer usar seu {resource}. Deseja permitir?"
+    ),
+    "permission_microphone": "microfone",
+    "permission_microphone_camera": "microfone e a câmera",
+    "upload_files_title": "Selecionar arquivos para enviar",
+    "upload_folder_title": "Selecionar uma pasta para enviar",
+    "upload_all_files_filter": "Todos os arquivos (*)",
+    "upload_dialog_location_label": "Local:",
+    "upload_dialog_name_label": "Nome:",
+    "upload_dialog_type_label": "Tipo de arquivo:",
+    "upload_dialog_directories": "Pastas",
+    "upload_dialog_select_folder": "Selecionar pasta",
+    "upload_dialog_open": "Abrir",
+    "upload_dialog_save": "Salvar",
+    "upload_dialog_cancel": "Cancelar",
+    "upload_dialog_desktop": "Área de Trabalho",
+    "upload_dialog_downloads": "Downloads",
+    "upload_dialog_home": "Início",
+    "upload_dialog_back": "Voltar",
+    "upload_dialog_back_description": "Voltar para a pasta anterior",
+    "upload_dialog_forward": "Avançar",
+    "upload_dialog_forward_description": "Avançar para a próxima pasta",
+    "upload_dialog_parent": "Pasta acima",
+    "upload_dialog_parent_description": "Abrir a pasta acima",
+    "upload_dialog_new_folder": "Criar pasta",
+    "upload_dialog_new_folder_description": "Criar uma nova pasta",
+    "upload_dialog_list_view": "Lista",
+    "upload_dialog_list_view_description": "Mostrar em formato de lista",
+    "upload_dialog_detail_view": "Detalhes",
+    "upload_dialog_detail_view_description": "Mostrar detalhes dos itens",
+    "home_title": "Início",
     "brand_initial": "h",
-    "home_subtitle": "O que você quer descobrir hoje?",
+    "home_subtitle": "hen! Onde Quer Navegar Hoje?",
     "home_search_placeholder": "Pesquisar ou digitar um endereço",
     "search": "Pesquisar",
     "favorites": "Favoritos",
+    "password_manager": "Senhas e logins",
+    "password_manager_title": "Senhas salvas para este site",
+    "password_site": "Site: {origin}",
+    "password_https_required": (
+        "Abra um site HTTPS para salvar ou preencher um login."
+    ),
+    "password_none": "Nenhum login salvo para este site.",
+    "password_account": "Conta",
+    "password_save_current": "Salvar login desta página",
+    "password_save_title": "Salvar login",
+    "password_save_notice": (
+        "A senha só será salva no cofre do sistema depois que você confirmar."
+    ),
+    "password_username": "E-mail ou usuário",
+    "password_password": "Senha",
+    "password_fill": "Preencher selecionado",
+    "password_delete": "Excluir",
+    "password_delete_title": "Excluir login salvo",
+    "password_delete_confirm": (
+        "Excluir o login {username} salvo para {origin}?"
+    ),
+    "password_page_changed": (
+        "A página mudou de site. Reabra o gerenciador para continuar."
+    ),
+    "password_fields_missing": (
+        "Não encontrei campos de e-mail/usuário e senha visíveis nesta página."
+    ),
+    "password_saved": "Login salvo no cofre seguro do sistema.",
     "favorites_empty": "Seus favoritos aparecerão aqui.",
     "recent": "Visitados recentemente",
     "recent_empty": "As páginas que você visitar aparecerão aqui.",
     "private_heading": "Navegação anônima",
-    "home_footer": "hen-Nave · Navegação simples e local",
-    "main_tab": "Principal",
+    "home_footer": "Navegação simples e local",
     "new_tab": "Nova aba",
     "navigation_toolbar": "Navegação",
     "wait": "Aguarde...",
@@ -631,6 +696,97 @@ TEXTO_UI = {
     "inspect_invalid_color": "Informe cores válidas, por exemplo #334455.",
     "inspect_update_success": "Alteração temporária aplicada à página.",
     "inspect_update_error": "O elemento não está mais disponível na página.",
+    "devtools_title": "Ferramentas do desenvolvedor",
+    "devtools_action": "Abrir ferramentas do desenvolvedor",
+    "site_security_action": "Segurança do site",
+    "site_security_title": "Diagnóstico de segurança do site",
+    "site_security_notice": (
+        "A análise do endereço é local. As verificações de rede só acontecem "
+        "quando você clica e enviam uma requisição HEAD à raiz do mesmo site, "
+        "sem cookies e sem seguir redirecionamentos."
+    ),
+    "url_safety_heading": "Sinais no endereço",
+    "url_safety_site": "Domínio: {host}",
+    "url_safety_local_only": (
+        "Esta verificação é simples e local; não confirma a reputação do site."
+    ),
+    "site_network_report_heading": "Resultado da verificação solicitada",
+    "check_security_headers": "Verificar cabeçalhos",
+    "inspect_tls_certificate": "Ver certificado HTTPS",
+    "site_security_invalid_url": "Abra um endereço HTTP(S) para continuar.",
+    "site_security_checking": "Consultando somente o cabeçalho da página…",
+    "site_security_root_only": (
+        "Consulta HEAD à raiz do mesmo domínio; nenhum corpo de página foi baixado."
+    ),
+    "site_security_http_status": "Resposta HTTP: {status}",
+    "site_security_request_error": "A consulta não foi concluída: {error}",
+    "site_security_head_limit": (
+        "A resposta HEAD pode diferir da página. “Não apareceu” é inconclusivo; "
+        "o servidor pode não fornecer estes cabeçalhos nesse tipo de consulta."
+    ),
+    "site_certificate_root_only": (
+        "Certificado observado na conexão HTTPS à raiz do mesmo domínio."
+    ),
+    "site_certificate_not_overridden": (
+        "O hen-Nave não ignorou nem aceitou erros de certificado."
+    ),
+    "site_certificate_validated": (
+        "A conexão TLS foi validada pelo Qt Network para esta consulta."
+    ),
+    "site_certificate_unavailable": (
+        "Não foi possível obter os detalhes do certificado."
+    ),
+    "site_certificate_subject": "Titular (CN): {value}",
+    "site_certificate_issuer": "Emissor (CN): {value}",
+    "site_certificate_from": "Válido a partir de: {value}",
+    "site_certificate_until": "Válido até: {value}",
+    "unknown_site": "desconhecido",
+    "site_privacy_action": "Privacidade do site",
+    "site_privacy_title": "Privacidade deste site",
+    "site_privacy_site": "Origem atual: {origin}",
+    "site_permissions_heading": "Permissões desta origem",
+    "site_permissions_refresh": "Atualizar permissões",
+    "site_permissions_revoke": "Revogar permissões",
+    "site_permissions_unavailable": (
+        "Esta versão do QtWebEngine não permite consultar as permissões salvas."
+    ),
+    "site_permissions_empty": (
+        "Nenhuma permissão conhecida está disponível para consulta."
+    ),
+    "site_permission_allowed": "permitida",
+    "site_permission_denied": "negada",
+    "site_permission_not_set": "sem decisão salva",
+    "site_permissions_revoke_title": "Revogar permissões",
+    "site_permissions_revoke_confirm": (
+        "Redefinir as permissões conhecidas de {origin}? O site poderá pedir "
+        "permissão novamente."
+    ),
+    "site_permissions_revoked": (
+        "{count} decisão(ões) de permissão redefinida(s)."
+    ),
+    "site_data_scope_note": (
+        "A limpeza afeta apenas os cookies e armazenamentos do domínio atual. "
+        "O cache geral e dados de outros sites não serão apagados."
+    ),
+    "site_data_clear": "Limpar dados deste site",
+    "site_data_clear_title": "Limpar dados do site",
+    "site_data_clear_confirm": (
+        "Apagar cookies e dados locais de {origin}? Isso pode encerrar sua "
+        "sessão nesse site."
+    ),
+    "site_data_clear_unavailable": (
+        "Não foi possível limpar os dados desta origem."
+    ),
+    "site_data_clearing": "Limpando os dados deste site…",
+    "site_data_clear_done": (
+        "Limpeza solicitada. {count} cookie(s) correspondente(s) enviado(s) "
+        "para remoção; "
+        "o armazenamento local foi limpo. Recarregue a página para concluir."
+    ),
+    "site_data_origin_changed": (
+        "A página mudou de origem durante a limpeza. Os cookies correspondentes "
+        "foram enviados para remoção, mas o armazenamento local pode não ter sido limpo."
+    ),
     "ai_placeholder": "Assistente de página",
     "ai_title": "Assistente da página",
     "translate_page": "Traduzir página para português",
@@ -860,6 +1016,15 @@ TEXTO_UI = {
     "capture_busy": "Já existe uma captura em andamento.",
     "capture_started": "Preparando captura…",
     "blocker_name": "Bloqueador de anúncios",
+    "data_saver_name": "Economia de dados",
+    "data_saver_tooltip_off": (
+        "Economia de dados desligada. Clique para bloquear imagens, vídeos/áudios "
+        "diretos e pré-carregamentos; recarregue a página para aplicar."
+    ),
+    "data_saver_tooltip_on": (
+        "Economia de dados ativa: bloqueia imagens, vídeos/áudios diretos e "
+        "pré-carregamentos. Recarregue a página atual se for seguro."
+    ),
     "blocker_settings": "Configurar bloqueador de anúncios",
     "blocker_toggle_site": "Desativar bloqueio neste site",
     "blocker_toggle_site_on": "Ativar bloqueio neste site",

@@ -19,13 +19,13 @@ from PySide6.QtWidgets import QApplication
 from _CONFIGURA_ import (
     AMARELO,
     COR_FAVORITO,
-    COR_FAVORITO_VAZIO,
     COR_TEXTO,
     COR_ACENTO,
     COR_PERIGO,
     COR_SUCESSO,
 )
 from _CONFIGURA_.temas import TEMAS
+from _CONFIGURA_.theme_engine import ensure_contrast_color
 
 
 _COR_POR_TEMA = {
@@ -67,6 +67,18 @@ def icone(nome: str, cor: str = COR_TEXTO) -> QIcon:
         return QIcon()
 
 
+def _cor_favorito_vazio() -> str:
+    """Usa cor do tema com contraste suficiente contra a superfície da barra."""
+    preferred_color = _cor_ativa(COR_TEXTO)
+    app = QApplication.instance()
+    if app is None:
+        return preferred_color
+    surface_color = app.property("henNaveTheme_surface")
+    if not isinstance(surface_color, str):
+        return preferred_color
+    return ensure_contrast_color(preferred_color, surface_color)
+
+
 def icone_colorido(nome: str, cor: str) -> QIcon:
     """Ícone com cor específica."""
     return icone(nome, cor)
@@ -91,9 +103,20 @@ def ico_adicionar() -> QIcon: return icone("fa5s.plus",         COR_SUCESSO)
 
 
 def ico_menu() -> QIcon: return icone("fa5s.bars", COR_TEXTO)
-def ico_favorito_vazio() -> QIcon: return icone("fa5r.star", COR_FAVORITO_VAZIO)
+def ico_favorito_vazio() -> QIcon:
+    """Estrela neutra sólida e contrastante, inclusive quando desabilitada."""
+    icon = icone("fa5s.star", _cor_favorito_vazio())
+    pixmap = icon.pixmap(64, 64)
+    if not pixmap.isNull():
+        visible_icon = QIcon()
+        visible_icon.addPixmap(pixmap, QIcon.Mode.Normal, QIcon.State.Off)
+        visible_icon.addPixmap(pixmap, QIcon.Mode.Disabled, QIcon.State.Off)
+        return visible_icon
+    return icon
+
 def ico_ferramentas() -> QIcon: return icone("fa5s.tools", COR_TEXTO)
 def ico_bloqueador() -> QIcon: return icone("fa5s.shield-alt", COR_TEXTO)
+def ico_economia_dados() -> QIcon: return icone("fa5s.leaf", COR_TEXTO)
 def ico_video_download() -> QIcon: return icone("fa5s.video", COR_TEXTO)
 def ico_downloads() -> QIcon: return icone("fa5s.download", COR_TEXTO)
 def ico_anotacoes() -> QIcon: return icone("fa5s.sticky-note", COR_TEXTO)

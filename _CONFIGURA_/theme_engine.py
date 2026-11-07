@@ -36,6 +36,53 @@ def normalizar_tema_personalizado(values: object) -> dict[str, str]:
     return normalized
 
 
+def ensure_contrast_color(
+    foreground: str,
+    background: str,
+    minimum_ratio: float = 3.0,
+) -> str:
+    """Keep a foreground color when legible; otherwise choose black or white."""
+    def luminance(color: str) -> float | None:
+        if not isinstance(color, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+            return None
+        channels = [
+            int(color[index:index + 2], 16) / 255
+            for index in (1, 3, 5)
+        ]
+        linear = [
+            channel / 12.92
+            if channel <= 0.04045
+            else ((channel + 0.055) / 1.055) ** 2.4
+            for channel in channels
+        ]
+        return (
+            0.2126 * linear[0]
+            + 0.7152 * linear[1]
+            + 0.0722 * linear[2]
+        )
+
+    foreground_luminance = luminance(foreground)
+    background_luminance = luminance(background)
+    if foreground_luminance is None or background_luminance is None:
+        return foreground
+
+    def contrast_ratio(first: float, second: float) -> float:
+        lighter, darker = max(first, second), min(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    if contrast_ratio(foreground_luminance, background_luminance) >= minimum_ratio:
+        return foreground.upper()
+
+    alternatives = ("#FFFFFF", "#111111")
+    return max(
+        alternatives,
+        key=lambda color: contrast_ratio(
+            luminance(color),
+            background_luminance,
+        ),
+    )
+
+
 def obter_tema(
     theme_id: str | None = None,
     *,
@@ -183,7 +230,12 @@ QToolButton#tabCloseButton:hover {{
     border-radius: {theme["control_radius_px"]}px;
     padding: 0;
 }}
-QToolButton#favoriteButton {{ color: {theme["accent"]}; }}
+QToolButton#favoriteButton {{ color: {theme["icon"]}; }}
+QToolButton#dataSaverButton:checked {{
+    background: {theme["accent_active"]};
+    border: {theme["border_width_px"]}px solid {theme["accent"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
 QTreeWidget#inspectorTree {{
     background: {theme["field"]};
     color: {theme["text"]};

@@ -1,5 +1,6 @@
 import ast
 from pathlib import Path
+import re
 import unittest
 
 
@@ -37,6 +38,9 @@ class CaptureWiringTests(unittest.TestCase):
         }
         cls.config_text = (
             project_root / "_CONFIGURA_" / "__init__.py"
+        ).read_text(encoding="utf-8")
+        cls.interceptor_text = (
+            project_root / "_SERVICOS_" / "adblocker.py"
         ).read_text(encoding="utf-8")
         cls.theme_text = (
             project_root / "_CONFIGURA_" / "theme_engine.py"
@@ -111,6 +115,40 @@ class CaptureWiringTests(unittest.TestCase):
         self.assertIn("def check_media_codecs(self, *_)", self.source_text)
         self.assertIn("MEDIA_CAPABILITY_SCRIPT", self.source_text)
 
+    def test_data_saver_blocks_only_heavy_resource_categories(self):
+        resource_block = re.search(
+            r"_DATA_SAVER_RESOURCE_TYPES\s*=\s*frozenset\(\s*\{(.*?)\}\s*\)",
+            self.interceptor_text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(resource_block)
+        resource_types = set(
+            re.findall(r"ResourceType\.(ResourceType\w+)", resource_block.group(1))
+        )
+        self.assertEqual(
+            resource_types,
+            {
+                "ResourceTypeImage",
+                "ResourceTypeMedia",
+                "ResourceTypePrefetch",
+            },
+        )
+        self.assertIn(
+            "data_saver_enabled\n                and resource_type in "
+            "_DATA_SAVER_RESOURCE_TYPES",
+            self.interceptor_text,
+        )
+        self.assertIn("def save_data_saver_enabled", self.source_text)
+        self.assertIn(
+            "settings[CHAVE_ECONOMIA_DADOS] = value",
+            self.source_text,
+        )
+        self.assertIn("self.data_saver_button.setCheckable(True)", self.source_text)
+        self.assertIn(
+            "self.data_saver_button.clicked.connect(self._set_data_saver_from_button)",
+            self.source_text,
+        )
+
     def test_custom_theme_editor_is_available_and_saved(self):
         self.assertIn('TEXTO_UI["theme_custom"]', self.source_text)
         self.assertIn('TEXTO_UI["theme_customize"]', self.source_text)
@@ -131,6 +169,7 @@ class CaptureWiringTests(unittest.TestCase):
             "ico_favorito_vazio",
             "ico_favorito",
             "ico_bloqueador",
+            "ico_economia_dados",
             "ico_video_download",
             "ico_inspecionar",
             "ico_ia",
@@ -149,17 +188,21 @@ class CaptureWiringTests(unittest.TestCase):
         }
         self.assertTrue(expected.issubset(self.icon_calls), expected - self.icon_calls)
         self.assertTrue(expected.issubset(self.icon_functions), expected - self.icon_functions)
-        self.assertIn('COR_FAVORITO_VAZIO = "#FFFFFF"', self.config_text)
+        icon_source = (
+            Path(__file__).resolve().parents[1] / "_ULTILIDADES_" / "icones.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('icone("fa5s.star", _cor_favorito_vazio())', icon_source)
         self.assertIn(
-            "COR_FAVORITO_VAZIO",
-            (Path(__file__).resolve().parents[1] / "_ULTILIDADES_" / "icones.py")
-            .read_text(encoding="utf-8"),
+            "visible_icon.addPixmap(pixmap, QIcon.Mode.Disabled, QIcon.State.Off)",
+            icon_source,
         )
+        self.assertIn('QToolButton#favoriteButton {{ color: {theme["icon"]}; }}', self.theme_text)
 
     def test_toolbar_button_order(self):
         markers = (
             "self.toolbar.addWidget(self.brand_button)",
             "self.toolbar.addWidget(self.blocker_button)",
+            "self.toolbar.addWidget(self.data_saver_button)",
             "self.toolbar.addWidget(self.favorite_button)",
             "self.toolbar.addWidget(self.video_download_button)",
             "self.toolbar.addWidget(self.capture_button)",

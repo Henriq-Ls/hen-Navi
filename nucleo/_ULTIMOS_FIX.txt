@@ -66,4 +66,143 @@ Verificação: compileall e git diff --check passaram; 99 testes passaram e 4 fo
   com provedor real ainda precisam ser feitas no aplicativo desktop. Páginas acima
   do limite configurado podem ser traduzidas parcialmente e exibem aviso.
 
+[2026-11-06] Adicionadas permissões de microfone e seleção de pastas
+Arquivos alterados: browser.py, _CONFIGURA_/__init__.py,
+  tests/test_browser_permissions_upload.py
+Causa raiz: O navegador precisava tratar explicitamente as permissões de captura
+  de áudio e o pedido de envio de diretório feito por uma página.
+Solução aplicada: Exibir confirmação para microfone e microfone/câmera. Para
+  FileSelectUploadFolder, abrir o seletor de diretório e devolver o caminho
+  escolhido. O Qt enumera os arquivos da pasta quando o site solicita esse modo;
+  campos comuns de arquivo continuam limitados ao que o próprio site permite.
+Verificação: 3 testes de ligação passaram. O envio real ainda não foi validado no
+  executável Windows. O item hen-Zip disponível no workspace está como arquivo
+  vazio de 0 bytes, não como pasta com conteúdo.
+
+[2026-11-06] Corrigida a busca do FFmpeg no executável empacotado
+Arquivos alterados: _SERVICOS_/video_download.py, _CONFIGURA_/__init__.py,
+  tests/test_video_download.py
+Causa raiz: No executável congelado, a busca precisava considerar a pasta do
+  próprio executável, em vez de depender de caminhos temporários do empacotador.
+Solução aplicada: Verificar as pastas FFmpeg e FFmpeg/bin ao lado do executável,
+  os caminhos configurados do projeto e, por último, o PATH do sistema. A falha
+  informa os caminhos tentados.
+Verificação: Os 11 testes de download de vídeo passaram, incluindo a busca de
+  FFmpeg ao lado de um executável congelado. O executável final ainda precisa ser
+  conferido no Windows.
+
+[2026-11-06] Transformado o roteiro de desempenho em checklist
+Arquivos alterados: nucleo/desempenho.txt
+Causa raiz: O roteiro futuro de diagnóstico e otimização não permitia marcar o
+  progresso de cada etapa.
+Solução aplicada: Adicionadas 33 caixas de seleção para diagnóstico, medições e
+  aceleração de hardware. Nenhuma otimização foi iniciada nesta alteração.
+Verificação: Confirmadas 33 caixas e nenhuma marcada.
+
+[2026-11-06] Removida a aba Principal fixa e preservado o padrão de navegação
+Arquivos alterados: browser.py, _APP_/Navegador/abas.py,
+  _CONFIGURA_/__init__.py, nucleo/_DOC_PROJETO.txt,
+  tests/test_tab_behavior.py
+Causa raiz: A primeira aba tinha regras especiais de posição e fechamento, e a
+  sessão não tratava todas as abas da mesma forma.
+Solução aplicada: Todas as abas podem ser movidas e fechadas; o botão + e Ctrl+T
+  acrescentam uma aba sem remover as existentes. Casinha e barra de endereço
+  navegam na aba selecionada, conforme o padrão do navegador. A sessão salva e
+  restaura todas as páginas; fechar a última aba abre uma nova página inicial.
+  A troca de tema também passou a atualizar o botão de fechar da primeira aba.
+Verificação: 6 testes de comportamento das abas passaram. Na suíte completa,
+  4 testes foram pulados sem PySide6 e o teste do logo da página inicial falhou
+  por um seletor esperado diferente do HTML atual. A interface não foi executada
+  neste ambiente.
+
+[2026-11-06] Ajustado o fluxo de envio de pastas ao Replit
+Arquivos alterados: browser.py, _CONFIGURA_/__init__.py,
+  nucleo/_DOC_PROJETO.txt, tests/test_browser_permissions_upload.py
+Problema observado: No envio para o Replit, a pasta apareceu como arquivo. O
+  comportamento do seletor manual não foi validado no executável Windows.
+Solução aplicada: Remover o tratamento manual e delegar a seleção ao QtWebEngine,
+  preservando o modo FileSelectUploadFolder solicitado pela página.
+Verificação: Testes de ligação e verificações estáticas passaram. O envio real
+  ainda precisa ser confirmado no executável Windows.
+
+[2026-11-06] Adicionado gerenciador local de senhas web
+Arquivos alterados: _SERVICOS_/secure_keyring.py,
+  _SERVICOS_/web_credential_store.py, _APP_/password_manager.py, browser.py,
+  _CONFIGURA_/__init__.py, README.md, nucleo/_DOC_PROJETO.txt,
+  tests/test_web_credential_store.py
+Solução aplicada: Salvar usuário e senha somente após confirmação explícita,
+  manter os segredos no keyring do sistema, associar cada login à origem HTTPS
+  exata e preencher somente após ação do usuário. O recurso fica indisponível em
+  janelas anônimas e nunca envia o formulário automaticamente.
+Verificação: 129 testes passaram e 4 testes que dependem de Qt foram pulados
+  porque PySide6 não está instalado neste ambiente. Os três scanners de
+  segurança não encontraram vulnerabilidades. A interface ainda precisa ser
+  validada no aplicativo desktop Windows.
+
+[2026-11-07] Adicionadas ferramentas de diagnóstico e privacidade
+Arquivos alterados: _APP_/security_tools.py, _APP_/site_privacy.py,
+  _SERVICOS_/security_analysis.py, browser.py, _CONFIGURA_/__init__.py,
+  nucleo/_DOC_PROJETO.txt, tests/test_security_analysis.py,
+  tests/test_security_tools_wiring.py
+Solução aplicada: Integrado o DevTools do Chromium à aba atual; adicionada análise
+  local de sinais no endereço, verificação manual de cabeçalhos e certificado via
+  HEAD na raiz do mesmo domínio, sem cookies e sem seguir redirecionamentos; e
+  central para revisar/redefinir permissões e solicitar limpeza de cookies e
+  armazenamento local apenas do site atual, com confirmação.
+Verificação: 137 testes passaram; 4 foram pulados porque PySide6 não está
+  instalado neste ambiente. compileall e git diff --check passaram. O aplicativo
+  Qt e as APIs de permissão/cookies ainda precisam de validação visual no Windows.
+
+Checagem solicitada das senhas: confirmada. Os metadados em web_logins.json
+  contêm apenas identificador e origem; usuário e senha são enviados ao keyring
+  seguro do sistema, sem alternativa de gravação em arquivo. A proteção em
+  repouso é feita pelo backend do sistema operacional, não por uma camada de
+  criptografia própria do hen-Nave. Os testes simulam o keyring; este ambiente
+  não permitiu verificar o cofre real do Windows.
+
+[2026-11-07] Tornada visível a estrela de favorito não salvo
+Arquivos alterados: _CONFIGURA_/theme_engine.py, _ULTILIDADES_/icones.py,
+  tests/test_theme_engine.py, tests/test_capture_wiring.py
+Problema observado: A estrela vazia usava a cor de ícone personalizada sem
+  verificar contraste com a superfície da barra; quando as cores coincidiam, o
+  botão parecia sumir. A estrela de contorno também não aparecia no executável
+  mostrado; a estrela salva usa amarelo `#FFC857`.
+Solução aplicada: Usar a estrela sólida em tom neutro antes de salvar, manter a
+  cor do tema quando o contraste é suficiente e escolher branco ou quase preto
+  quando necessário para atingir ao menos 3:1 de contraste.
+Verificação: 23 testes de tema e integração passaram; compileall passou.
+
+[2026-11-07] Corrigido o envio de arquivos de pasta e o crash de download
+Arquivos alterados: browser.py, _CONFIGURA_/__init__.py,
+  _SERVICOS_/folder_upload.py, tests/test_browser_permissions_upload.py,
+  tests/test_download_history_wiring.py, tests/test_folder_upload.py,
+  README.md, nucleo/_DOC_PROJETO.txt, nucleo/_DOC_ERROS_BUGS.txt
+Problema observado: O upload de pasta gerava `stat hen-Navi/.: not a directory`.
+  Os logs de crash também mostraram NameError no início de um download por falta
+  de import de uma constante de status.
+Solução aplicada: Para pastas com arquivos na raiz, enviar os caminhos reais dos
+  arquivos, com um arquivo da raiz primeiro; isso mantém a pasta como base e
+  evita os marcadores `/.` do enumerador do Qt. Para pastas sem arquivos na raiz,
+  manter o modo padrão do QtWebEngine. Importar a constante de status ausente.
+  O seletor também já traduz rótulos, ordena nomes e inclui Área de Trabalho,
+  Downloads e Início na barra lateral.
+Verificação: 15 testes focados passaram e compileall passou. O fluxo real de
+  upload ainda precisa ser confirmado no executável Windows.
+
+[2026-11-07] Evitado travamento ao abrir seletor de upload
+Arquivos alterados: browser.py, _CONFIGURA_/__init__.py,
+  tests/test_browser_permissions_upload.py, README.md,
+  nucleo/_DOC_PROJETO.txt, nucleo/_DOC_ERROS_BUGS.txt
+Causa provável: O fluxo anterior delegava a abertura ao seletor nativo do
+  QtWebEngine. O relato indica travamento antes da escolha; o log anexado não
+  registra uma exceção específica do upload e aponta somente para o loop normal
+  do app e avisos ResizeObserver da página.
+Solução aplicada: Substituir o seletor nativo por QFileDialog Qt não nativo,
+  modal à janela do navegador. Os modos de arquivo, múltiplos arquivos, pasta e
+  salvar retornam o tipo de seleção esperado; filtros MIME são aplicados quando
+  disponíveis e cancelar não envia nenhum arquivo.
+Verificação: 139 testes passaram; 4 foram pulados porque PySide6 não está
+  instalado neste ambiente. compileall e git diff --check passaram. O seletor e
+  uploads reais ainda precisam ser validados no executável Windows.
+
 ════════════════════════════════════════════════════════════════════════════════

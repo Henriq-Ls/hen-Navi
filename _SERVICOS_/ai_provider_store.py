@@ -13,38 +13,26 @@ from _CONFIGURA_ import (
     LIMITE_CARACTERES_PAGINA_IA_MAXIMO,
     LIMITE_CARACTERES_PAGINA_IA_MINIMO,
 )
+from _SERVICOS_.secure_keyring import SecureKeyringError, get_secure_keyring
 
 SERVICE_KEYRING = "hen-nave.ai"
 CONFIG_FILENAME = "ai_providers.json"
-_SAFE_KEYRING_MODULES = (
-    "keyring.backends.Windows",
-    "keyring.backends.macOS",
-    "keyring.backends.SecretService",
-    "keyring.backends.kwallet",
-)
-
-
 class ProviderStoreError(RuntimeError):
     """Erro seguro para apresentar ao usuário, sem conteúdo de credenciais."""
 
 
 def _safe_keyring():
     try:
-        import keyring
-
-        backend = keyring.get_keyring()
-    except Exception:
+        return get_secure_keyring()
+    except SecureKeyringError as error:
+        if str(error) == "O keyring do sistema não está disponível.":
+            raise ProviderStoreError(
+                "O keyring do sistema não está disponível. Nenhuma chave foi salva."
+            ) from None
         raise ProviderStoreError(
-            "O keyring do sistema não está disponível. Nenhuma chave foi salva."
+            f"{error} Configure um keyring do Windows, macOS ou Linux e tente novamente."
         ) from None
 
-    module = type(backend).__module__
-    if not any(module.startswith(prefix) for prefix in _SAFE_KEYRING_MODULES):
-        raise ProviderStoreError(
-            "O keyring selecionado não é um cofre seguro do sistema. "
-            "Configure um keyring do Windows, macOS ou Linux e tente novamente."
-        )
-    return keyring
 
 
 class ProviderStore:

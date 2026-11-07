@@ -67,4 +67,38 @@ Solução / workaround: Adicionado diagnóstico local no menu para consultar
 Verificação: Testes da função de diagnóstico passaram; reprodução real no
   Windows ainda não verificada.
 
+[UPLOAD-SELETOR] STATUS: CORREÇÃO APLICADA; VALIDAR NO WINDOWS
+Data descoberta: 2026-11-07
+Descrição: Ao iniciar um envio em diferentes sites, o hen-Nave trava antes de
+  permitir a escolha do arquivo ou da pasta.
+Como reproduzir: Abrir um formulário de upload e acionar o seletor de arquivos.
+Causa suspeita: O fluxo anterior delegava ao seletor nativo do QtWebEngine. O
+  arquivo de diagnóstico enviado não registra uma exceção do upload; a linha
+  main.py:165 aponta para o loop normal do aplicativo, e ResizeObserver é um
+  aviso JavaScript da página.
+Solução / workaround: Substituído o seletor nativo por QFileDialog Qt não nativo,
+  modal à janela do hen-Nave, com tratamento explícito para arquivo, seleção
+  múltipla e pastas. Cancelar retorna uma seleção vazia.
+Verificação: Testes de integração estática e compileall passaram; o travamento
+  ainda precisa ser validado no executável Windows porque PySide6 não está
+  instalado neste ambiente.
+Atualização: A interface agora traduz os controles do seletor, ordena os itens
+  alfabeticamente e mostra atalhos para Área de Trabalho e Downloads. O log mais
+  recente também contém `stat hen-Navi/.: not a directory` durante upload no
+  Replit. O código do QtWebEngine cria marcadores de diretório com `/.` durante
+  sua enumeração; alguns sites podem tentar tratar esses marcadores como arquivos.
+  Quando a pasta selecionada tem arquivos na raiz, o hen-Nave agora envia os
+  arquivos reais em ordem, com um arquivo da raiz primeiro para manter a pasta
+  selecionada como base e preservar os caminhos relativos. Pastas sem arquivos na
+  raiz usam o fluxo padrão do QtWebEngine. O envio real ainda precisa ser
+  confirmado no executável Windows.
+
+[DOWNLOAD-STATUS] STATUS: CORRIGIDO
+Data descoberta: 2026-11-07
+Descrição: Ao iniciar um download, o app lançava NameError porque a duração da
+  mensagem de status não estava importada em browser.py.
+Solução: Importada a constante já definida em _CONFIGURA_/__init__.py.
+Verificação: Teste de ligação e compileall passaram; não foi possível testar o
+  download real no Windows neste ambiente.
+
 ════════════════════════════════════════════════════════════════════════════════

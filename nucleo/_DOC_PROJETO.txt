@@ -31,7 +31,9 @@ _APPDATA_/
   Gerencia a pasta do usuário: %APPDATA%/hen-nave no Windows,
   ~/.hen-nave no Linux/macOS.
   Caminhos canônicos, config.json, sessao.json e storage.py (persistência SQLite
-  de histórico, favoritos, sessão, anotações, exceções e downloads comuns).
+  de histórico, favoritos, sessão, anotações, exceções, favicons e downloads
+  comuns). Favicons PNG de páginas normais são armazenados por host e usados nos
+  cards locais; ícones de navegação anônima não são persistidos.
   Metadados de provedores não incluem chaves ou tokens.
 
 _THREADS_/
@@ -44,16 +46,24 @@ _APP_/
   Interface da janela principal, painéis de anotações/IA e diálogos do
   bloqueador e das conexões de IA. _APP_/ai_config.py preenche os presets dos
   provedores e consulta modelos do Ollama no serviço local.
+  password_manager.py permite salvar e preencher logins após ação explícita do
+  usuário, limitados à origem HTTPS exata e indisponíveis em janelas anônimas.
   O botão de tradução da barra usa o provedor ativo e apresenta a resposta no
   painel da IA, sem substituir a página original.
   dialogs.py contém as janelas de histórico e favoritos; startpage.py e
   private_startpage.py criam as páginas iniciais normal e anônima.
   browser_downloads.py mantém o painel do histórico comum e temporário anônimo.
-  Navegador/abas.py mantém a aba Principal fixa no primeiro índice.
+  Navegador/abas.py configura a barra de abas móveis e fecháveis; a aba Início
+  permanece única, fixa na primeira posição e não pode ser fechada.
+  security_tools.py fornece o DevTools do Chromium e o diagnóstico manual de
+  endereço, cabeçalhos HTTP e certificado TLS. site_privacy.py consulta as
+  permissões conhecidas e limpa dados da origem aberta.
 
 _SERVICOS_/
   Serviços sem interface: adblocker.py/adblock_rules.py, ai_service.py,
-  ai_provider_store.py e video_download.py.
+  ai_provider_store.py, secure_keyring.py, web_credential_store.py e
+  security_analysis.py e video_download.py. Senhas de sites e chaves de IA usam
+  o keyring do sistema; os arquivos de configuração guardam somente metadados.
 
 _ULTILIDADES_/
   Ícones, pop-ups padronizados e funções reutilizáveis de URL, captura e host.
@@ -67,7 +77,8 @@ browser.py
   laterais. O botão de tradução na barra solicita a tradução do texto visível
   usando o provedor de IA ativo. Downloads comuns são persistidos; downloads
   anônimos ficam em memória. O painel de IA é criado durante a montagem da
-  interface, antes da criação das abas.
+  interface, antes da criação das abas. O DevTools embutido acompanha a aba
+  selecionada sem habilitar depuração remota global.
 
 _APP_/download_video.py
   Painel lateral de processamento de vídeo/áudio e transcrição, ligado à URL atual
@@ -104,7 +115,8 @@ _APP_/private_startpage.py
 
 _APP_/startpage.py
   HTML local da página inicial; escapa valores dinâmicos e aceita somente
-  URLs HTTP(S) nos links.
+  URLs HTTP(S) nos links. Cards exibem favicons PNG já armazenados localmente e
+  usam a inicial do domínio quando ainda não há ícone disponível.
 
 _ULTILIDADES_/utils.py
   Valida a barra de endereço e converte texto livre no buscador padrão escolhido
@@ -143,6 +155,13 @@ DECISÕES DE ARQUITETURA
     salva sua lista antes de ser removida do controlador.
   - O código nunca desativa o sandbox do Chromium nem concede acesso local
     a páginas remotas.
+  - Uploads usam um QFileDialog Qt modal e não nativo, em português, com modos
+    para arquivo, múltiplos arquivos, pasta e salvar. A lista é ordenada por nome
+    e a barra lateral prioriza Área de Trabalho, Downloads e Início. Filtros MIME
+    são aplicados quando disponíveis; cancelar retorna uma lista vazia. No modo
+    de pasta, arquivos reais são enviados com caminhos relativos quando existe
+    um arquivo na raiz selecionada, evitando marcadores `/.`; pastas sem arquivos
+    na raiz permanecem no fluxo padrão do QtWebEngine.
   - O assistente e o tradutor só coletam `document.body.innerText` após ação
     explícita; não persistem prompt, texto da página, histórico de conversa ou
     resposta. Conversas por aba vivem apenas na memória da janela. A tradução
@@ -168,6 +187,13 @@ DECISÕES DE ARQUITETURA
     manual; testes com HTTP simulado não comprovam acesso a provedores reais.
   - O download de vídeo usa yt-dlp sem importar cookies do navegador e procura
     o FFmpeg local em FFmpeg/ ou FFmpeg/bin/ antes do PATH do sistema.
+  - O diagnóstico de segurança só consulta a raiz do site após clique, com HEAD,
+    sem cookies e sem seguir redirecionamentos. O analisador de endereço é local
+    e não consulta serviços de reputação.
+  - A central de privacidade mostra os estados de permissão expostos pelo Qt e,
+    após confirmação, solicita a remoção de cookies do domínio atual e limpa os
+    armazenamentos locais acessíveis pela página. Não apaga o cache HTTP geral
+    nem dados de outros domínios.
 
 ────────────────────────────────────────────────────────────────────────────────
 DEPENDÊNCIAS EXTERNAS

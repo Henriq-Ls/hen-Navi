@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import sqlite3
 import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from _CONFIGURA_ import SEGUNDOS_DEDUP_HISTORICO
 from _ULTILIDADES_.site_utils import normalize_host
 from _ULTILIDADES_.utils import is_http_url
+
+
+def _favicon_key(url: str) -> str:
+    if not is_http_url(url):
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+        host = normalize_host(parsed.hostname, strip_www=True)
+        port = parsed.port
+    except ValueError:
+        return ""
+    if not host:
+        return ""
+    if (parsed.scheme.lower(), port) in {("http", 80), ("https", 443)}:
+        port = None
+    return f"{host}:{port}" if port else host
 
 
 class BrowserStorage:
@@ -49,6 +67,15 @@ class BrowserStorage:
                     url TEXT PRIMARY KEY,
                     title TEXT NOT NULL DEFAULT '',
                     added_at REAL NOT NULL
+                )
+                """
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS site_favicons (
+                    host TEXT PRIMARY KEY,
+                    data_uri TEXT NOT NULL,
+                    updated_at REAL NOT NULL
                 )
                 """
             )
@@ -217,6 +244,55 @@ class BrowserStorage:
                 (term, term, term),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def save_favicon(self, url: str, data_uri: str) -> bool:
+        """Salva um favicon PNG local vinculado ao host do site."""
+        host = _favicon_key(url)
+        prefix = "data:image/png;base64,"
+        if not host or not isinstance(data_uri, str) or not data_uri.startswith(prefix):
+            return False
+        encoded = data_uri[len(prefix):]
+        if not encoded or len(encoded) > 350_000:
+            return False
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+        except (ValueError, base64.binascii.Error):
+            return False
+        if (
+            len(image_bytes) > 256_000
+            or not image_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+        ):
+            return False
+        with self._lock, self._connection:
+            current = self._connection.execute(
+                "SELECT data_uri FROM site_favicons WHERE host = ?",
+                (host,),
+            ).fetchone()
+            if current and current["data_uri"] == data_uri:
+                return False
+            self._connection.execute(
+                """
+                INSERT INTO site_favicons(host, data_uri, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(host) DO UPDATE SET
+                    data_uri = excluded.data_uri,
+                    updated_at = excluded.updated_at
+                """,
+                (host, data_uri, time.time()),
+            )
+        return True
+
+    def get_favicon(self, url: str) -> str:
+        """Retorna o favicon PNG salvo para o host, se existir."""
+        host = _favicon_key(url)
+        if not host:
+            return ""
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT data_uri FROM site_favicons WHERE host = ?",
+                (host,),
+            ).fetchone()
+        return row["data_uri"] if row else ""
 
     def save_session(self, urls: list[str]) -> None:
         clean_urls: list[str] = []

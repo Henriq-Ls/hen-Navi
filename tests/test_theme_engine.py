@@ -10,6 +10,7 @@ from _CONFIGURA_ import (
 )
 from _APP_.startpage import generate_start_page
 from _CONFIGURA_.theme_engine import (
+    ensure_contrast_color,
     normalizar_tema_personalizado,
     obter_tema,
     startpage_theme_css,
@@ -18,6 +19,20 @@ from _CONFIGURA_.theme_engine import (
 
 
 class ThemeConfigurationTests(unittest.TestCase):
+    def test_favorite_icon_color_has_contrast_against_toolbar_surface(self):
+        self.assertEqual(
+            ensure_contrast_color("#DDDDDD", "#DDDDDD"),
+            "#111111",
+        )
+        self.assertEqual(
+            ensure_contrast_color("#EAF6FF", "#101A2A"),
+            "#EAF6FF",
+        )
+        self.assertEqual(
+            ensure_contrast_color("#FFFFFF", "#FFFFFF"),
+            "#111111",
+        )
+
     def test_all_themes_have_the_same_complete_keys(self):
         for theme_id, theme in TEMAS.items():
             with self.subTest(tema=theme_id):

@@ -7,6 +7,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class DownloadHistoryWiringTests(unittest.TestCase):
+    def test_download_start_status_timeout_is_imported_and_configured(self):
+        browser_source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        config_source = (
+            PROJECT_ROOT / "_CONFIGURA_" / "__init__.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("STATUS_DOWNLOAD_INICIO_MS,", browser_source)
+        self.assertIn("STATUS_DOWNLOAD_INICIO_MS = 5000", config_source)
+
     def test_download_history_uses_shared_side_panel_and_right_toolbar_action(self):
         source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
 

@@ -22,6 +22,11 @@ site, então a janela do navegador não aparece no preview web da Replit.
 - Download de vídeos com análise de título, canal, duração e qualidades.
 - Temas, busca na página e atalhos de teclado.
 - Diagnóstico local de suporte a codecs de vídeo pelo QtWebEngine, no menu do navegador.
+- Ferramentas integradas de segurança: análise local de endereço, cabeçalhos HTTP
+  e certificado HTTPS.
+- DevTools do Chromium e central de privacidade por site.
+- Gerenciador de senhas no cofre seguro do sistema operacional.
+- Seletor Qt de arquivos e pastas para uploads em páginas web.
 - Assistente opcional para resumir e responder perguntas sobre a página atual.
 - Ações no rodapé para abrir a pasta de dados e limpar o cache.
 
@@ -80,6 +85,42 @@ aberto pelo botão na barra lateral direita ou pelo menu. Capturas ficam em **Fe
 bloqueador, dados, conexões de IA e atalhos ficam em **Configurações**. A lista
 completa de atalhos também abre com `F1`.
 
+### Ferramentas de segurança e privacidade
+
+Essas ferramentas são recursos internos do hen-Nave, não plugins instaláveis nem
+um sistema de extensões:
+
+- **Ferramentas do desenvolvedor** abre o DevTools do Chromium na aba atual. Ao
+  trocar de aba, o painel acompanha a página selecionada. O botão fica na barra
+  vertical à direita.
+- **Segurança do site**, no menu do hen-Nave, analisa sinais básicos do endereço
+  localmente. Os botões de cabeçalhos e certificado só fazem uma consulta `HEAD`
+  à raiz do mesmo domínio após o clique; não enviam cookies, não baixam o corpo
+  da página e não seguem redirecionamentos. A ausência de um cabeçalho numa
+  resposta `HEAD` é inconclusiva.
+- **Privacidade do site**, também no menu do hen-Nave, mostra estados de
+  permissões que o QtWebEngine expõe. Você pode redefini-los e, após confirmação,
+  solicitar a limpeza dos cookies e dos armazenamentos locais da origem atual.
+  Isso não apaga o cache HTTP geral nem os dados de outros domínios.
+
+O hen-Nave já possui um inspetor DOM próprio para consultar e fazer alterações
+temporárias na página; ele é diferente do DevTools completo do Chromium.
+
+### Uploads de arquivos e pastas
+
+Ao clicar num controle de upload de site, o hen-Nave abre um seletor Qt próprio,
+modal à janela do navegador e sem usar o seletor nativo do sistema. Ele distingue
+arquivo único, vários arquivos, pasta e seleção para salvar. Quando a página pede
+uma pasta, o hen-Nave envia a lista de arquivos encontrados nela, preservando os
+caminhos relativos. Para evitar que alguns sites tentem tratar marcadores de
+diretório `/.` como arquivos, o seletor prepara essa lista diretamente quando a
+pasta contém arquivos na raiz; pastas sem arquivos na raiz continuam usando o
+modo de diretório do QtWebEngine. Em seleções comuns, usa os tipos MIME aceitos
+pelo site quando disponíveis. Cancelar fecha o seletor sem enviar arquivos. Os
+rótulos e controles do seletor estão em português, a lista aparece em ordem
+alfabética e a barra lateral oferece atalhos para Área de Trabalho, Downloads e
+Início.
+
 O botão de download abre um painel à direita. Ele analisa o link da aba atual ou
 um endereço colado no painel, permite escolher a qualidade máxima, o formato e a
 pasta de destino. Também pode baixar áudio, salvar transcrições e gerar legendas
@@ -117,10 +158,12 @@ cada uso.
 
 Coloque o executável `ffmpeg.exe` (ou `ffmpeg` em outros sistemas) em
 `FFmpeg/` ou `FFmpeg/bin/` na raiz do projeto, ou disponibilize-o no `PATH`.
-Os executáveis não são incluídos no repositório. A transcrição tenta usar legendas
-primeiro; se não houver, precisa do Whisper e do FFmpeg. O modelo Whisper pode ser
-baixado automaticamente para o cache do hen-Nave na primeira utilização. O suporte
-depende dos sites reconhecidos pelo yt-dlp e do acesso permitido pelo site de origem.
+Em um executável PyInstaller de arquivo único, também pode colocá-lo ao lado do
+`.exe`, dentro de `FFmpeg/` ou `FFmpeg/bin/`. Os executáveis não são incluídos no
+repositório. A transcrição tenta usar legendas primeiro; se não houver, precisa
+do Whisper e do FFmpeg. O modelo Whisper pode ser baixado automaticamente para o
+cache do hen-Nave na primeira utilização. O suporte depende dos sites reconhecidos
+pelo yt-dlp e do acesso permitido pelo site de origem.
 
 | Ação | Atalho |
 |---|---|
@@ -153,6 +196,9 @@ cache e logs. Use o botão de pasta no rodapé ou `Ctrl+Shift+D` para abri-la.
 O botão **Limpar cache** remove o cache HTTP do navegador; cookies e histórico
 não são apagados.
 
+**Privacidade do site** limpa apenas os dados da origem atual após confirmação;
+ela não substitui a limpeza geral do cache.
+
 Janelas normais mantêm cookies, histórico e sessão de abas entre execuções.
 Janelas anônimas usam um perfil temporário e não salvam cookies, histórico ou
 sessão; favoritos continuam disponíveis. Anotações ficam desativadas nelas.
@@ -179,6 +225,13 @@ Plus, e não substitui uma extensão completa.
 - Endereços, favoritos, histórico e sessão aceitam apenas URLs HTTP(S).
 - Consultas ao SQLite usam parâmetros.
 - Chaves de provedores ficam somente no keyring do sistema operacional.
+- Logins de sites só são salvos após confirmação; usuário e senha ficam no
+  keyring do sistema, e o arquivo local contém apenas origem e identificador.
+- A proteção em repouso do login é responsabilidade do backend do sistema
+  operacional. O hen-Nave não aplica uma camada própria de criptografia e não
+  grava a senha em arquivo se o keyring seguro não estiver disponível.
+- O preenchimento exige uma ação sua e funciona somente na origem HTTPS exata
+  onde o login foi salvo. O gerenciador não funciona em janelas anônimas.
 - HTTP é permitido apenas para localhost e IPs privados; destinos públicos
   precisam de HTTPS. Redirecionamentos são bloqueados para não encaminhar chaves.
 - O assistente não recebe cookies, histórico, anotações, arquivos ou dados do
@@ -187,15 +240,20 @@ Plus, e não substitui uma extensão completa.
   arquivos locais para páginas remotas.
 - O sandbox do Chromium permanece habilitado.
 
+Para salvar um login, abra o menu do hen-Nave, escolha **Senhas e logins** e
+clique em **Salvar login desta página**. Confira os campos e confirme. Para
+preencher depois, abra a mesma origem HTTPS, escolha a conta e clique em
+**Preencher selecionado**. O navegador não envia o formulário automaticamente.
+
 ## Estrutura do projeto
 
 ```text
 .
-├── _APP_/                 Janelas e recursos da interface
+├── _APP_/                 Janelas, painéis e ferramentas integradas
 ├── _APPDATA_/             Pastas e arquivos de dados do usuário
 ├── _CONFIGURA_/           Textos, temas, cores e atalhos
 ├── _LOGS_/                Registro de eventos e falhas
-├── _SERVICOS_/            Download de vídeo, IA e bloqueador
+├── _SERVICOS_/            Vídeo, IA, bloqueador e análise de segurança
 ├── _THREADS_/             Threads e gerenciamento de execução
 ├── _ULTILIDADES_/         Pop-ups, ícones e funções reutilizáveis
 ├── midias/                Logo do navegador e ícone do aplicativo

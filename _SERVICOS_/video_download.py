@@ -6,6 +6,7 @@ import html
 import os
 import re
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -120,9 +121,20 @@ class VideoDownloadService:
     @staticmethod
     def _localizar_ffmpeg() -> Path:
         tentativas = []
-        for raiz in CAMINHOS_FFMPEG:
+        raizes = [Path(raiz) for raiz in CAMINHOS_FFMPEG]
+        if getattr(sys, "frozen", False):
+            pasta_executavel = Path(sys.executable).resolve().parent
+            raizes = [
+                pasta_executavel / "FFmpeg",
+                pasta_executavel / "FFMPEG" / "FFmpeg",
+                pasta_executavel / "FFMPEG",
+                pasta_executavel,
+                *raizes,
+            ]
+
+        for raiz in raizes:
             for relativo in PASTAS_RELATIVAS_FFMPEG:
-                pasta = Path(raiz) / relativo if relativo else Path(raiz)
+                pasta = raiz / relativo if relativo else raiz
                 for nome in EXECUTAVEIS_FFMPEG:
                     caminho = pasta / nome
                     tentativas.append(str(caminho))
@@ -132,8 +144,15 @@ class VideoDownloadService:
         executavel = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
         if executavel:
             return Path(executavel)
+        pasta_recomendada = (
+            Path(sys.executable).resolve().parent / "FFmpeg"
+            if getattr(sys, "frozen", False)
+            else Path(PASTA_FFMPEG)
+        )
         raise RuntimeError(
-            TEXTO_UI["video_download_ffmpeg_missing"].format(folder=PASTA_FFMPEG)
+            TEXTO_UI["video_download_ffmpeg_missing"].format(
+                folder=pasta_recomendada
+            )
             + "\nCaminhos verificados: "
             + "; ".join(tentativas)
         )

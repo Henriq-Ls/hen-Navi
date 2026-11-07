@@ -1,3 +1,4 @@
+import base64
 import tempfile
 import unittest
 from pathlib import Path
@@ -41,6 +42,33 @@ class BrowserStorageTests(unittest.TestCase):
         self.assertEqual(len(self.storage.get_favorites("exem")), 1)
         self.assertTrue(self.storage.remove_favorite("https://example.com/"))
         self.assertFalse(self.storage.is_favorite("https://example.com/"))
+
+    def test_favicons_are_cached_per_site_and_validated_as_png(self):
+        png = base64.b64encode(b"\x89PNG\r\n\x1a\nfixture").decode("ascii")
+        favicon = f"data:image/png;base64,{png}"
+        self.assertTrue(
+            self.storage.save_favicon(
+                "https://www.example.com/page",
+                favicon,
+            )
+        )
+        self.assertEqual(
+            self.storage.get_favicon("http://example.com/"),
+            favicon,
+        )
+        self.assertFalse(
+            self.storage.save_favicon(
+                "https://example.com/",
+                favicon,
+            )
+        )
+        self.assertFalse(
+            self.storage.save_favicon(
+                "https://example.com/",
+                "data:image/svg+xml,<svg/>",
+            )
+        )
+        self.assertEqual(self.storage.get_favicon("javascript:alert(1)"), "")
 
     def test_session_filters_invalid_urls_and_deduplicates(self):
         self.storage.save_session(

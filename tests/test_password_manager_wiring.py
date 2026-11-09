@@ -30,6 +30,22 @@ class PasswordManagerWiringTests(unittest.TestCase):
             for node in cls.dialog_class.body
             if isinstance(node, ast.FunctionDef)
         }
+        browser_tree = ast.parse(cls.browser_source)
+        cls.browser_classes = {
+            node.name: node
+            for node in browser_tree.body
+            if isinstance(node, ast.ClassDef)
+        }
+        cls.page_methods = {
+            node.name: node
+            for node in cls.browser_classes["BrowserPage"].body
+            if isinstance(node, ast.FunctionDef)
+        }
+        cls.window_methods = {
+            node.name: node
+            for node in cls.browser_classes["BrowserWindow"].body
+            if isinstance(node, ast.FunctionDef)
+        }
 
     def test_password_manager_is_disabled_for_private_windows(self):
         self.assertIn(
@@ -57,6 +73,39 @@ class PasswordManagerWiringTests(unittest.TestCase):
         self.assertIn("self.page.runJavaScript", source)
         self.assertIn("self._page_matches_origin()", source)
 
+    def test_https_login_submits_offer_save_only_in_normal_windows(self):
+        page_init = ast.get_source_segment(
+            self.browser_source,
+            self.page_methods["__init__"],
+        )
+        console_handler = ast.get_source_segment(
+            self.browser_source,
+            self.page_methods["javaScriptConsoleMessage"],
+        )
+        self.assertIn("if not browser_window.private", page_init)
+        self.assertIn("QWebEngineScript.InjectionPoint.DocumentCreation", page_init)
+        self.assertIn("PASSWORD_SAVE_SUBMIT_SCRIPT", page_init)
+        self.assertIn("message == PASSWORD_SAVE_SUBMIT_MARKER", console_handler)
+        self.assertIn("_offer_password_save_after_submit", console_handler)
+
+        self.assertIn('location.protocol !== "https:"', self.password_source)
+        self.assertIn("event.preventDefault()", self.password_source)
+        self.assertIn("event.stopImmediatePropagation()", self.password_source)
+        self.assertIn("console.info(\"__HEN_NAVE_PASSWORD_SUBMIT__\")", self.password_source)
+        self.assertIn('"new-password"', self.password_source)
+        self.assertIn("setTimeout(resumeSubmission, 15000)", self.password_source)
+        self.assertIn("window.__henNavePendingLoginForm = form", self.password_source)
+        self.assertIn("pending.form.requestSubmit", self.password_source)
+
+    def test_auto_save_needs_confirmation_and_resumes_site_submission(self):
+        method = self.window_methods["_show_password_save_prompt"]
+        source = ast.get_source_segment(self.browser_source, method)
+        self.assertIn("SaveLoginDialog(", source)
+        self.assertIn("dialog.exec() != QDialog.DialogCode.Accepted", source)
+        self.assertIn("self.web_credential_store.save_login(", source)
+        self.assertIn("finally:", source)
+        self.assertIn("page.runJavaScript(PASSWORD_SAVE_RESUME_SCRIPT)", source)
+
     def test_fill_checks_exact_origin_and_does_not_submit_form(self):
         script_source = self.password_source.split(
             "def _fill_login_script", 1
@@ -72,6 +121,8 @@ class PasswordManagerWiringTests(unittest.TestCase):
         self.assertIn("QDialogButtonBox.StandardButton.Save", self.password_source)
         self.assertIn("get_secure_keyring", credential_store)
         self.assertIn("password_save_notice", self.password_source)
+        self.assertIn("password_save_not_now", self.password_source)
+        self.assertIn('"password_save_not_now": "Agora não"', self.config_source)
 
     def test_private_window_policy_is_documented(self):
         self.assertIn("password_manager_action.setEnabled(not self.private)", self.browser_source)

@@ -8,7 +8,7 @@ from _SERVICOS_.folder_upload import collect_folder_upload_files
 class FolderUploadTests(unittest.TestCase):
     def test_returns_files_in_relative_path_order_with_root_file_first(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "hen-Navi"
+            root = Path(temporary) / "hen-Nave"
             nested = root / "nucleo" / "subpasta"
             nested.mkdir(parents=True)
             (root / "zeta.txt").write_text("z", encoding="utf-8")

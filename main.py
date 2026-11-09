@@ -13,6 +13,9 @@ import sys
 import os
 import traceback
 import faulthandler
+from time import perf_counter
+
+_PROCESS_STARTED_AT = perf_counter()
 
 # ── Bootstrap: garante que o diretório do projeto está no path ────────────────
 _DIR = os.path.dirname(os.path.abspath(__file__))
@@ -127,6 +130,7 @@ from _CONFIGURA_ import (
     FONTE_NOME_UI, FONTE_TAMANHO_BASE,
     TITULO_APP, IMAGEM_ICO, TEMA_QT
 )
+from _SERVICOS_.performance_diagnostics import record_startup_stage
 from browser import BrowserController, register_custom_url_scheme
 
 
@@ -146,6 +150,7 @@ def main():
     qInstallMessageHandler(_qt_msg_handler)
     register_custom_url_scheme()
     app = QApplication(sys.argv)
+    record_startup_stage(log, "qapplication_criado", _PROCESS_STARTED_AT)
     app.setStyle(TEMA_QT)
 
     if FONTE_TAMANHO_BASE and FONTE_TAMANHO_BASE > 0:
@@ -159,7 +164,9 @@ def main():
 
     log.ok("main.py", "main", "QApplication criada")
     controller = BrowserController(app)
+    record_startup_stage(log, "controlador_criado", _PROCESS_STARTED_AT)
     win = controller.start()
+    record_startup_stage(log, "janela_exibida", _PROCESS_STARTED_AT)
     log.ok("main.py", "main", "Janela do hen-Nave exibida")
 
     code = app.exec()

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QProgressBar,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -36,6 +37,7 @@ class BrowserDownloadsDock(QDockWidget):
         self.storage = storage
         self.private = private
         self._private_downloads: dict[int, dict] = {}
+        self._progress_by_key: dict[int, tuple[int, int]] = {}
 
         content = QWidget(self)
         layout = QVBoxLayout(content)
@@ -130,7 +132,31 @@ class BrowserDownloadsDock(QDockWidget):
         if entry is not None:
             entry["status"] = str(status)
             entry["finished_at"] = datetime.now().timestamp()
+            self._progress_by_key.pop(int(session_key), None)
             self.refresh()
+
+    def update_download_progress(
+        self,
+        download_key: int,
+        received_bytes: int,
+        total_bytes: int,
+    ) -> None:
+        key = int(download_key)
+        progress = (max(0, int(received_bytes)), max(0, int(total_bytes)))
+        self._progress_by_key[key] = progress
+        key_role = _ROLE_SESSION_KEY if self.private else _ROLE_DOWNLOAD_ID
+        for index in range(self.download_list.topLevelItemCount()):
+            item = self.download_list.topLevelItem(index)
+            if int(item.data(0, key_role) or -1) != key:
+                continue
+            if str(item.data(0, _ROLE_STATUS)) != "active":
+                return
+            widget = self.download_list.itemWidget(item, 1)
+            if widget is None:
+                self.refresh()
+                return
+            self._set_progress_widget_values(widget, *progress)
+            return
 
     def refresh(self) -> None:
         selected_key = self._selected_key()
@@ -150,8 +176,13 @@ class BrowserDownloadsDock(QDockWidget):
             "cancelled": TEXTO_UI["browser_download_state_cancelled"],
             "interrupted": TEXTO_UI["browser_download_state_interrupted"],
         }
+        active_keys = set()
         for entry in entries:
             status = entry.get("status", "")
+            if self.private:
+                entry_key = int(entry.get("session_key", -1))
+            else:
+                entry_key = int(entry.get("id", -1))
             item = QTreeWidgetItem(
                 [
                     str(entry.get("file_name", "")),
@@ -168,18 +199,88 @@ class BrowserDownloadsDock(QDockWidget):
                 item.setData(
                     0,
                     _ROLE_SESSION_KEY,
-                    int(entry.get("session_key", -1)),
+                    entry_key,
                 )
             else:
-                item.setData(0, _ROLE_DOWNLOAD_ID, int(entry.get("id", -1)))
+                item.setData(0, _ROLE_DOWNLOAD_ID, entry_key)
             self.download_list.addTopLevelItem(item)
+            if status == "active":
+                active_keys.add(entry_key)
+                progress_widget = self._create_progress_widget(
+                    self._progress_by_key.get(entry_key, (0, 0))
+                )
+                self.download_list.setItemWidget(item, 1, progress_widget)
             if self._item_key(item) == selected_key:
                 self.download_list.setCurrentItem(item)
 
+        self._progress_by_key = {
+            key: value
+            for key, value in self._progress_by_key.items()
+            if key in active_keys
+        }
         has_entries = bool(entries)
         self.empty_label.setVisible(not has_entries)
         self.download_list.setVisible(has_entries)
         self._update_button_states()
+
+    def _create_progress_widget(
+        self,
+        progress: tuple[int, int],
+    ) -> QWidget:
+        container = QWidget(self.download_list)
+        container.setObjectName("browserDownloadProgressWidget")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setSpacing(2)
+
+        label = QLabel(container)
+        label.setObjectName("browserDownloadProgressLabel")
+        label.setAccessibleName(TEXTO_UI["browser_download_state_active"])
+        layout.addWidget(label)
+
+        progress_bar = QProgressBar(container)
+        progress_bar.setObjectName("browserDownloadProgressBar")
+        progress_bar.setAccessibleName(TEXTO_UI["browser_download_progress"])
+        progress_bar.setTextVisible(False)
+        progress_bar.setFixedHeight(10)
+        progress_bar.setMinimumWidth(96)
+        layout.addWidget(progress_bar)
+        self._set_progress_widget_values(container, *progress)
+        return container
+
+    def _set_progress_widget_values(
+        self,
+        container: QWidget,
+        received_bytes: int,
+        total_bytes: int,
+    ) -> None:
+        label = container.findChild(QLabel, "browserDownloadProgressLabel")
+        progress_bar = container.findChild(
+            QProgressBar,
+            "browserDownloadProgressBar",
+        )
+        if label is None or progress_bar is None:
+            return
+        if total_bytes > 0:
+            percent = min(100, int(received_bytes * 100 / total_bytes))
+            label.setText(
+                f'{TEXTO_UI["browser_download_state_active"]} · {percent}%'
+            )
+            progress_bar.setRange(0, 100)
+            progress_bar.setValue(percent)
+            progress_bar.setToolTip(
+                TEXTO_UI["browser_download_progress"].format(
+                    received=received_bytes,
+                    total=total_bytes,
+                    percent=percent,
+                )
+            )
+        else:
+            label.setText(TEXTO_UI["browser_download_state_active"])
+            progress_bar.setRange(0, 0)
+            progress_bar.setToolTip(
+                TEXTO_UI["browser_download_progress_unknown"]
+            )
 
     def _format_date(self, value) -> str:
         try:

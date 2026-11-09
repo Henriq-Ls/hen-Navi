@@ -1,1 +1,4 @@
 - [Uso de dados móveis](uso-dados-moveis.md) — o modo econômico deve priorizar reduzir tráfego em conexões móveis limitadas.
+- [Registro de mudanças](registro-de-mudancas.md) — ao concluir alterações, atualizar `nucleo/_ULTIMOS_FIX.txt` com o que mudou e o estado da validação.
+- [Faixa de favoritos](faixa-de-favoritos.md) — cada favorito tem botão de abrir e um único menu de três pontos para editar/remover.
+- [Validação no Windows](validacao-windows.md) — verifique sincronização da cópia local antes de atribuir ao código atual um erro registrado no Windows.

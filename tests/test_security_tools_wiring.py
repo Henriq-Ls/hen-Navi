@@ -23,6 +23,55 @@ class SecurityToolsWiringTests(unittest.TestCase):
         self.assertIn("page.setDevToolsPage(self.devtools_page)", self.tools_source)
         self.assertIn("self._sync_devtools_page()", self.browser_source)
         self.assertIn('self._toggle_side_panel("devtools")', self.browser_source)
+        self.assertIn("ico_inspecionar()", self.browser_source)
+        self.assertIn("ico_ferramentas()", self.browser_source)
+        self.assertIn(
+            'self.devtools_action.setIcon(ico_ferramentas())',
+            self.browser_source,
+        )
+        self.assertIn(
+            '"inspect_page": "Inspecionar DOM da página"',
+            (PROJECT_ROOT / "_CONFIGURA_" / "__init__.py").read_text(
+                encoding="utf-8"
+            ),
+        )
+        self.assertIn(
+            '"devtools_action": "Abrir DevTools do Chromium"',
+            (PROJECT_ROOT / "_CONFIGURA_" / "__init__.py").read_text(
+                encoding="utf-8"
+            ),
+        )
+
+    def test_devtools_detaches_when_its_panel_is_hidden(self):
+        tree = ast.parse(self.browser_source)
+        window = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BrowserWindow"
+        )
+        methods = {
+            node.name: node
+            for node in window.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        sync_source = ast.get_source_segment(
+            self.browser_source,
+            methods["_sync_devtools_page"],
+        )
+        toggle_source = ast.get_source_segment(
+            self.browser_source,
+            methods["_toggle_side_panel"],
+        )
+        close_source = ast.get_source_segment(
+            self.browser_source,
+            methods["_close_side_panel"],
+        )
+
+        self.assertIn('self._active_side_panel != "devtools"', sync_source)
+        self.assertIn("not self._side_panel_container.isVisible()", sync_source)
+        self.assertIn("devtools.set_page(None)", sync_source)
+        self.assertIn("self._sync_devtools_page()", toggle_source)
+        self.assertIn("self._sync_devtools_page()", close_source)
 
     def test_network_checks_are_user_triggered_head_requests(self):
         self.assertIn("manager.head(request)", self.tools_source)

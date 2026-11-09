@@ -14,6 +14,12 @@ class CaptureWiringTests(unittest.TestCase):
         cls.ai_config_text = (
             project_root / "_APP_" / "ai_config.py"
         ).read_text(encoding="utf-8")
+        cls.performance_panel_text = (
+            project_root / "_APP_" / "performance_panel.py"
+        ).read_text(encoding="utf-8")
+        cls.performance_status_text = (
+            project_root / "_APP_" / "performance_status.py"
+        ).read_text(encoding="utf-8")
         cls.window = next(
             node
             for node in tree.body
@@ -114,6 +120,52 @@ class CaptureWiringTests(unittest.TestCase):
         self.assertIn("menu.addAction(self.media_diagnostic_action)", self.source_text)
         self.assertIn("def check_media_codecs(self, *_)", self.source_text)
         self.assertIn("MEDIA_CAPABILITY_SCRIPT", self.source_text)
+
+    def test_gpu_diagnostic_is_available_from_main_menu(self):
+        self.assertIn('TEXTO_UI["gpu_diagnostic"]', self.source_text)
+        self.assertIn("menu.addAction(self.gpu_diagnostic_action)", self.source_text)
+        self.assertIn("def open_gpu_diagnostic(self, *_)", self.source_text)
+        self.assertIn('TEXTO_UI["gpu_diagnostic_unavailable"]', self.source_text)
+        gpu_method = self.source_text.split(
+            "def open_gpu_diagnostic(self, *_):",
+            1,
+        )[1].split("\n    def ", 1)[0]
+        self.assertIn("popup_info(", gpu_method)
+        self.assertNotIn("_create_tab(", gpu_method)
+        self.assertNotIn("URL_DIAGNOSTICO_GPU", self.source_text)
+        self.assertNotIn("URL_DIAGNOSTICO_GPU", self.config_text)
+
+    def test_performance_monitor_is_in_the_right_sidebar(self):
+        self.assertIn("self._create_performance_action()", self.source_text)
+        self.assertIn("def _toggle_performance_panel(self, *_)", self.source_text)
+        self.assertIn("if self.performance_panel is None:", self.source_text)
+        self.assertIn(
+            "self._side_panel_stack.addWidget(self.performance_panel)",
+            self.source_text,
+        )
+        self.assertIn(
+            "self._add_sidebar_action_button(self.performance_action)",
+            self.source_text,
+        )
+        self.assertIn('"performance": (', self.source_text)
+        self.assertIn(
+            "self._status_bar.addPermanentWidget(self.performance_readout)",
+            self.source_text,
+        )
+        self.assertIn(
+            "self.performance_monitor.start()",
+            self.source_text,
+        )
+        self.assertIn("PerformanceStatusReadout(", self.source_text)
+        self.assertIn("PerformanceMonitor(self)", self.source_text)
+        self.assertIn("self.performance_panel.start_monitoring()", self.source_text)
+        self.assertIn("self.performance_panel.stop_monitoring()", self.source_text)
+        self.assertIn("self._timer.setInterval(1000)", self.performance_panel_text)
+        self.assertIn("self._timer.start()", self.performance_panel_text)
+        self.assertIn("self._timer.stop()", self.performance_panel_text)
+        self.assertNotIn("import psutil", self.performance_panel_text)
+        self.assertIn("SAMPLE_INTERVAL_MS = 3000", self.performance_status_text)
+        self.assertIn("self._sample_timer.start()", self.performance_status_text)
 
     def test_data_saver_blocks_only_heavy_resource_categories(self):
         resource_block = re.search(
@@ -244,6 +296,7 @@ class CaptureWiringTests(unittest.TestCase):
             'self.minimize_window_button = self._add_window_control_button(',
             'self.window_controls_toolbar.addSeparator()',
             'self._add_sidebar_action_button(self.inspect_action)',
+            'self._add_sidebar_action_button(self.performance_action)',
             'self._add_sidebar_action_button(self.open_app_data_action)',
             'self._add_sidebar_action_button(self.clear_cache_action)',
         )

@@ -35,6 +35,9 @@ def _favicon_key(url: str) -> str:
 class BrowserStorage:
     """Acesso sincronizado ao banco SQLite do navegador."""
 
+    MAX_SEARCH_QUERY_LENGTH = 160
+    MAX_SAVED_SEARCH_QUERIES = 50
+
     def __init__(self, database_path: str | Path):
         self.database_path = Path(database_path)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +63,14 @@ class BrowserStorage:
             self._connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_history_url_time "
                 "ON history(url, visited_at DESC)"
+            )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS search_queries (
+                    query TEXT PRIMARY KEY COLLATE NOCASE,
+                    searched_at REAL NOT NULL
+                )
+                """
             )
             self._connection.execute(
                 """
@@ -202,6 +213,62 @@ class BrowserStorage:
     def clear_history(self) -> None:
         with self._lock, self._connection:
             self._connection.execute("DELETE FROM history")
+            self._connection.execute("DELETE FROM search_queries")
+
+    def record_search_query(
+        self,
+        query: str,
+        searched_at: float | None = None,
+    ) -> bool:
+        """Guarda consultas enviadas pelo usuário, limitadas às 50 mais recentes."""
+        clean_query = " ".join(str(query or "").split())[
+            : self.MAX_SEARCH_QUERY_LENGTH
+        ]
+        if not clean_query:
+            return False
+        timestamp = time.time() if searched_at is None else float(searched_at)
+        with self._lock, self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO search_queries(query, searched_at) VALUES (?, ?)
+                ON CONFLICT(query) DO UPDATE SET
+                    query = excluded.query,
+                    searched_at = excluded.searched_at
+                """,
+                (clean_query, timestamp),
+            )
+            self._connection.execute(
+                """
+                DELETE FROM search_queries
+                WHERE query NOT IN (
+                    SELECT query FROM search_queries
+                    ORDER BY searched_at DESC, query COLLATE NOCASE
+                    LIMIT ?
+                )
+                """,
+                (self.MAX_SAVED_SEARCH_QUERIES,),
+            )
+        return True
+
+    def recent_search_queries(
+        self,
+        search: str = "",
+        limit: int = 30,
+    ) -> list[str]:
+        """Retorna consultas anteriores mais recentes que correspondem ao texto."""
+        value = (search or "").strip()
+        term = f"%{value}%"
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT query FROM search_queries
+                WHERE (? = '' OR query LIKE ?)
+                ORDER BY searched_at DESC, query COLLATE NOCASE
+                LIMIT ?
+                """,
+                (value, term, max(1, int(limit))),
+            ).fetchall()
+        return [str(row["query"]) for row in rows]
 
     def add_favorite(self, url: str, title: str = "") -> bool:
         if not is_http_url(url):

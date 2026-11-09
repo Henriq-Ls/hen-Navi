@@ -43,6 +43,65 @@ class BrowserStorageTests(unittest.TestCase):
         self.assertTrue(self.storage.remove_favorite("https://example.com/"))
         self.assertFalse(self.storage.is_favorite("https://example.com/"))
 
+    def test_existing_favorite_can_be_renamed(self):
+        url = "https://example.com/"
+        self.storage.add_favorite(url, "Nome antigo")
+        self.assertTrue(self.storage.add_favorite(url, "Nome novo"))
+        self.assertEqual(self.storage.get_favorites()[0]["title"], "Nome novo")
+
+    def test_renaming_one_favorite_preserves_the_rest(self):
+        urls = (
+            "https://one.example/",
+            "https://two.example/",
+            "https://three.example/",
+        )
+        for index, url in enumerate(urls):
+            self.storage.add_favorite(url, f"Favorito {index}")
+
+        self.storage.add_favorite(urls[1], "Nome atualizado")
+
+        favorites = self.storage.get_favorites()
+        self.assertEqual({item["url"] for item in favorites}, set(urls))
+        self.assertEqual(
+            next(item["title"] for item in favorites if item["url"] == urls[1]),
+            "Nome atualizado",
+        )
+
+    def test_search_queries_are_normalized_deduplicated_and_limited(self):
+        self.assertFalse(self.storage.record_search_query("   "))
+        self.assertTrue(
+            self.storage.record_search_query(
+                "  Pinterest   ideias  ",
+                searched_at=10,
+            )
+        )
+        self.assertTrue(
+            self.storage.record_search_query(
+                "pinterest IDEIAS",
+                searched_at=20,
+            )
+        )
+        self.storage.record_search_query("Google imagens", searched_at=30)
+        self.assertEqual(
+            self.storage.recent_search_queries("IDEIAS"),
+            ["pinterest IDEIAS"],
+        )
+        self.assertEqual(
+            self.storage.recent_search_queries(),
+            ["Google imagens", "pinterest IDEIAS"],
+        )
+
+    def test_search_query_history_keeps_only_the_50_most_recent_terms(self):
+        for index in range(51):
+            self.storage.record_search_query(
+                f"consulta {index}",
+                searched_at=index,
+            )
+        queries = self.storage.recent_search_queries(limit=60)
+        self.assertEqual(len(queries), 50)
+        self.assertNotIn("consulta 0", queries)
+        self.assertEqual(queries[0], "consulta 50")
+
     def test_favicons_are_cached_per_site_and_validated_as_png(self):
         png = base64.b64encode(b"\x89PNG\r\n\x1a\nfixture").decode("ascii")
         favicon = f"data:image/png;base64,{png}"
@@ -87,11 +146,13 @@ class BrowserStorageTests(unittest.TestCase):
     def test_history_entry_removal_and_clear(self):
         self.storage.record_visit("https://one.example/", "Um", visited_at=100)
         self.storage.record_visit("https://two.example/", "Dois", visited_at=200)
+        self.storage.record_search_query("consulta anterior", searched_at=150)
         first = self.storage.get_history()[1]
         self.assertTrue(self.storage.remove_history_entry(first["id"]))
         self.assertEqual(len(self.storage.get_history()), 1)
         self.storage.clear_history()
         self.assertEqual(self.storage.get_history(), [])
+        self.assertEqual(self.storage.recent_search_queries(), [])
 
     def test_browser_download_history_keeps_terminal_status_until_removed(self):
         download_id = self.storage.record_browser_download(

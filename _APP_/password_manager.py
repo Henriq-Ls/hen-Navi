@@ -28,6 +28,90 @@ from _SERVICOS_.web_credential_store import (
 from _ULTILIDADES_.popups import popup_aviso, popup_pergunta
 
 
+PASSWORD_SAVE_SUBMIT_MARKER = "__HEN_NAVE_PASSWORD_SUBMIT__"
+PASSWORD_SAVE_CANCEL_FALLBACK_SCRIPT = (
+    "window.__henNaveCancelPasswordSaveFallback?.();"
+)
+PASSWORD_SAVE_RESUME_SCRIPT = (
+    "window.__henNaveResumeLoginSubmission?.();"
+)
+PASSWORD_SAVE_SUBMIT_SCRIPT = r"""
+(() => {
+    if (location.protocol !== "https:" ||
+        window.__henNavePasswordSubmitMonitor) return;
+    window.__henNavePasswordSubmitMonitor = true;
+    let pendingSubmission = null;
+    let resumingSubmission = false;
+
+    const visible = (input) => {
+        if (!(input instanceof HTMLInputElement) || input.disabled ||
+            input.readOnly) return false;
+        const style = getComputedStyle(input);
+        return input.type !== "hidden" &&
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            input.getClientRects().length > 0;
+    };
+
+    const resumeSubmission = () => {
+        const pending = pendingSubmission;
+        if (!pending) return;
+        pendingSubmission = null;
+        window.__henNavePendingLoginForm = null;
+        clearTimeout(pending.fallback);
+        resumingSubmission = true;
+        try {
+            if (pending.submitter && pending.submitter.isConnected) {
+                pending.form.requestSubmit(pending.submitter);
+            } else {
+                pending.form.requestSubmit();
+            }
+        } catch (_) {
+            // If the form was removed or changed, do not block the page.
+        } finally {
+            resumingSubmission = false;
+        }
+    };
+
+    window.__henNaveCancelPasswordSaveFallback = () => {
+        if (pendingSubmission) clearTimeout(pendingSubmission.fallback);
+    };
+    window.__henNaveResumeLoginSubmission = resumeSubmission;
+
+    document.addEventListener("submit", (event) => {
+        if (resumingSubmission || pendingSubmission ||
+            location.protocol !== "https:") return;
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        try {
+            if (new URL(form.action || location.href, location.href).protocol
+                !== "https:") return;
+        } catch (_) {
+            return;
+        }
+
+        const passwordInputs = Array.from(
+            form.querySelectorAll('input[type="password"]')
+        ).filter(visible);
+        if (passwordInputs.some((input) =>
+            (input.autocomplete || "").toLowerCase() === "new-password"
+        )) return;
+        if (!passwordInputs.some((input) => Boolean(input.value))) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        pendingSubmission = {
+            form,
+            submitter: event.submitter,
+            fallback: setTimeout(resumeSubmission, 15000)
+        };
+        window.__henNavePendingLoginForm = form;
+        console.info("__HEN_NAVE_PASSWORD_SUBMIT__");
+    }, true);
+})();
+"""
+
+
 _READ_LOGIN_SCRIPT = r"""
 (() => {
     const visible = (input) => {
@@ -38,13 +122,19 @@ _READ_LOGIN_SCRIPT = r"""
             style.visibility !== "hidden" &&
             input.getClientRects().length > 0;
     };
-    const password = Array.from(
-        document.querySelectorAll('input[type="password"]')
-    ).find(visible);
+    const pendingForm = window.__henNavePendingLoginForm;
+    const scope = pendingForm instanceof HTMLFormElement
+        ? pendingForm
+        : document;
+    const passwordInputs = Array.from(
+        scope.querySelectorAll('input[type="password"]')
+    ).filter(visible);
+    const password = passwordInputs.find((input) => Boolean(input.value)) ||
+        passwordInputs[0];
     if (!password) return {username: "", password: ""};
 
-    const scope = password.form || document;
-    const candidates = Array.from(scope.querySelectorAll("input"))
+    const formScope = password.form || scope;
+    const candidates = Array.from(formScope.querySelectorAll("input"))
         .filter((input) => visible(input) && input !== password)
         .map((input) => {
             const hint = [
@@ -177,6 +267,11 @@ class SaveLoginDialog(QDialog):
             | QDialogButtonBox.StandardButton.Cancel,
             self,
         )
+        cancel_button = buttons.button(
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        if cancel_button is not None:
+            cancel_button.setText(TEXTO_UI["password_save_not_now"])
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

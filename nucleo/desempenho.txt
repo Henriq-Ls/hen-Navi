@@ -63,6 +63,70 @@ Colete somente o necessário para identificar gargalos:
 - [ ] Fluidez ao alternar abas, rolar páginas e abrir/fechar painéis.
 - [ ] Travamentos, falhas de renderização e erros do Qt/WebEngine.
 
+PROGRESSO NO WORKSPACE
+
+- A inicialização registra localmente os tempos até QApplication, controlador e
+  janela exibida. Isso não equivale a medir o instante em que o usuário percebe a
+  interface como totalmente utilizável.
+- Cada carregamento registra apenas categoria (web/local/interno), duração e
+  sucesso. URLs, títulos e conteúdo não são registrados por essa medição.
+- As medições aparecem em `LOG_GERAL.log` quando `MODO_DEV` está ativo.
+- Este ambiente não tem PySide6 nem Windows: a janela, os tempos reais e a GPU
+  ainda precisam ser validados no computador do usuário.
+
+PRIMEIRA COLETA NO WINDOWS — 2026-11-08
+
+- O log confirmou as medições: QApplication em 4456 ms, controlador em 5558 ms
+  e janela exibida em 7272 ms, todos desde o início do processo.
+- Quatro carregamentos locais: 752, 541, 394 e 434 ms. Três carregamentos web
+  concluídos: 4972, 6338 e 11322 ms; dois terminaram sem sucesso.
+- Como os carregamentos web não foram identificados por cenário e não existe uma
+  medição anterior comparável, estes números ainda não demonstram ganho nem
+  regressão. Nenhuma otimização foi aplicada nesta etapa; não era esperado notar
+  diferença de velocidade.
+- O aviso `Failed to create WebGPU Context Provider` não confirma que a
+  composição gráfica inteira esteja sem GPU. Não apareceu diagnóstico
+  `qt.webenginecontext`; estado da GPU permanece inconclusivo.
+- O menu principal e o painel explicam o diagnóstico da GPU em um diálogo. A
+  tentativa de carregar `chrome://gpu` falhou e abriu uma aba branca nesta
+  execução; essa URL não é mais aberta. Não ativa/desativa GPU nem muda flags.
+- A barra inferior agora mantém CPU e RAM visíveis do lado direito. Um monitor
+  compartilhado amostra o processo do hen-Nave e os filhos Chromium a cada 3 s;
+  essa mesma leitura alimenta o painel lateral detalhado, sem criar uma segunda
+  coleta quando o painel é aberto.
+- A barra vertical direita abre o painel `Desempenho`, com CPU e memória
+  agregadas do processo do hen-Nave e seus processos filhos, quantidade de
+  processos, janela exibida e resumo das navegações da sessão. A amostragem de
+  CPU/RAM é local e nada é enviado para fora ou salvo entre sessões. CPU é uma
+  porcentagem do total de núcleos lógicos; memória soma RSS e pode contar páginas
+  compartilhadas mais de uma vez.
+- Não foi criado um modo genérico “turbo” nem um controle para forçar GPU:
+  não há gargalo comprovado nem ganho medido. O controle existente “Economia de
+  dados” pode bloquear imagens/mídia/prefetch, mas pode ocultar conteúdo e não
+  garante aceleração.
+- O arquivo de crash registra `STATUS_DOWNLOAD_INICIO_MS` como indefinido em
+  `browser.py`, linha 871. No workspace atual, a constante existe e é importada,
+  e essa linha pertence a outro método; verificar sincronização/compilação da
+  cópia de código Windows antes de usar o resultado do teste de downloads.
+
+SEGUNDA COLETA NO WINDOWS — 2026-11-08
+
+- A imagem confirmou que `psutil` foi instalado: a sessão mostrou CPU 1,9%,
+  memória RSS somada de 2440 MiB e 9 processos. A RAM é uma soma aproximada e
+  pode contar páginas compartilhadas mais de uma vez.
+- Inicialização: QApplication 902 ms, controlador 1592 ms e janela exibida
+  2413 ms. Isso é melhor que a primeira coleta, mas ainda não é comparação
+  controlada; a sessão e as condições podem ser diferentes.
+- Navegações registradas: local 715, 380 e 293 ms; web 5614 e 11183 ms; uma
+  navegação interna falhou após 39 ms. O log não registra URLs.
+- O registro de 39 ms coincide com a tentativa de abrir `chrome://gpu`; a tela
+  branca é consistente com essa navegação interna falha. O botão agora mostra
+  uma explicação em diálogo e não cria uma aba vazia. O estado da aceleração
+  permanece inconclusivo.
+- O log ainda registra `STATUS_DOWNLOAD_INICIO_MS` indefinido em
+  `D:\Hein_Projetos\hen-Navi\browser.py:871`, mas o workspace atual importa e
+  usa a constante. Sincronizar `browser.py` inteiro antes de testar downloads.
+
 Use cenários repetíveis:
 
 - [ ] Página inicial local.
@@ -107,9 +171,17 @@ PLANO DE TRABALHO
 Marque cada caixa somente depois de concluir e validar o item. Deixe pendências
 desmarcadas.
 
-- [ ] Mapear a inicialização, criação dos perfis e carregamento das páginas.
+- [x] Mapear a inicialização, criação dos perfis e carregamento das páginas.
 - [ ] Adicionar diagnóstico local e não invasivo, com tempo, CPU/memória e estado
   gráfico quando esses dados forem acessíveis de forma confiável.
+  - [x] Medir etapas de inicialização e duração dos carregamentos sem registrar
+    URLs ou títulos.
+  - [x] Medir CPU/memória do processo e filhos Chromium localmente enquanto o
+    painel lateral está aberto.
+- [x] Evitar a aba branca do diagnóstico interno; explicar a limitação sem
+  alegar que a GPU esteja desligada.
+  - [ ] Validar a leitura do estado gráfico no Windows; aceitar resultado
+    inconclusivo se a página não der informação suficiente.
 - [ ] Registrar uma linha de base repetível e apresentar os resultados em tabela
   ou gráfico.
 - [ ] Identificar o gargalo com evidência; propor uma mudança pequena por vez.
@@ -117,6 +189,17 @@ desmarcadas.
   downloads, janela anônima e retomada de sessão.
 - [ ] Manter a alteração somente se trouxer ganho mensurável e não quebrar
   estabilidade, segurança ou compatibilidade.
+- [x] Receber a primeira coleta manual de tempos no Windows.
+- [x] Confirmar no Windows que o painel detalhado exibe CPU, RAM e processos
+  depois de instalar `psutil`.
+- [ ] Após sincronizar o código atualizado, confirmar a leitura fixa de CPU/RAM
+  no lado direito da barra inferior; ela deve atualizar sem abrir o painel.
+- [ ] Confirmar que clicar no painel de desempenho preserva a página ativa e que
+  o botão da GPU abre um diálogo, não uma nova aba.
+- [ ] Abrir o diagnóstico da GPU e registrar os estados de Compositing, WebGL e
+  WebGPU; não compartilhar o log inteiro.
+- [ ] Repetir cenários controlados, identificando cada página e tentativa, após
+  sincronizar a cópia local do código.
 
 CRITÉRIOS DE CONCLUSÃO
 

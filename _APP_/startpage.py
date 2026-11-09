@@ -1,4 +1,4 @@
-"""Geração segura da página inicial HTML do hen-Nave."""
+"""Geração segura da página inicial HTML local do hen-Nave."""
 
 from __future__ import annotations
 
@@ -18,7 +18,55 @@ from _CONFIGURA_ import (
     TEXTO_UI,
 )
 from _CONFIGURA_.theme_engine import startpage_theme_css
+from _SERVICOS_.search_suggestions import collect_site_suggestions
 from _ULTILIDADES_.utils import is_http_url
+
+
+_HOME_SEARCH_SCRIPT = r"""(() => {
+  const input = document.getElementById("home-search-input");
+  const list = document.getElementById("home-search-suggestions");
+  if (!input || !list || !window.qt || typeof QWebChannel === "undefined") return;
+
+  const localOptions = Array.from(list.options).map((option) => ({
+    value: option.value,
+    label: option.label
+  }));
+  const addOption = (value, label, seen) => {
+    const key = String(value || "").toLocaleLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    const option = document.createElement("option");
+    option.value = value;
+    if (label) option.label = label;
+    list.appendChild(option);
+  };
+
+  new QWebChannel(qt.webChannelTransport, (channel) => {
+    const bridge = channel.objects.homeSearch;
+    if (!bridge) return;
+    const form = input.form;
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        bridge.submitSearch(input.value.trim());
+      });
+    }
+    bridge.suggestionsReady.connect((query, suggestions) => {
+      if (input.value.trim() !== query) return;
+      list.replaceChildren();
+      const seen = new Set();
+      for (const option of localOptions) {
+        addOption(option.value, option.label, seen);
+      }
+      for (const suggestion of suggestions || []) {
+        addOption(suggestion, document.body.dataset.suggestionSearchLabel, seen);
+      }
+    });
+    input.addEventListener("input", () => {
+      bridge.requestSuggestions(input.value.trim());
+    });
+  });
+})();"""
 
 
 @lru_cache(maxsize=1)
@@ -95,19 +143,59 @@ def _safe_favicon(value: object) -> str:
     return value
 
 
+def _search_suggestion_options(
+    favorites: list[dict],
+    recent: list[dict],
+    search_queries: list[str],
+) -> str:
+    options = []
+    seen: set[str] = set()
+    for entry in collect_site_suggestions("", favorites, recent)[:40]:
+        host = entry["host"]
+        if host.casefold().startswith("www."):
+            host = host[4:]
+        key = host.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        value = html.escape(host, quote=True)
+        label = html.escape(entry["title"], quote=True)
+        options.append(f'<option value="{value}" label="{label}"></option>')
+
+    for query in search_queries:
+        value = " ".join(str(query or "").split())[:160]
+        key = value.casefold()
+        if not value or key in seen:
+            continue
+        seen.add(key)
+        options.append(
+            f'<option value="{html.escape(value, quote=True)}" '
+            f'label="{html.escape(TEXTO_UI["search_suggestion_label"], quote=True)}">'
+            "</option>"
+        )
+    return "".join(options)
+
+
 def generate_start_page(
     favorites: list[dict] | None = None,
     recent: list[dict] | None = None,
+    search_queries: list[str] | None = None,
     *,
     private: bool = False,
     theme_id: str = TEMA_PADRAO,
     custom_theme: dict | None = None,
 ) -> str:
-    """Monta uma página sem scripts nem conteúdo externo, escapando dados dinâmicos."""
+    """Monta a página local, escapando dados e conectando sugestões pelo Qt."""
     safe_favorites = _safe_items(favorites or [])
     safe_recent = [] if private else _safe_items(recent or [])
+    safe_search_queries = [] if private else list(search_queries or [])
     favorite_cards = "".join(_card(item, index) for index, item in enumerate(safe_favorites))
     recent_cards = "".join(_card(item, index + 3) for index, item in enumerate(safe_recent))
+    search_suggestion_options = _search_suggestion_options(
+        safe_favorites,
+        safe_recent,
+        safe_search_queries,
+    )
 
     favorite_section = (
         f'<div class="grid">{favorite_cards}</div>'
@@ -143,7 +231,7 @@ def generate_start_page(
   <title>{html.escape(TEXTO_UI["home_title"], quote=True)}</title>
   <style>{CSS_PAGINA_INICIAL}{startpage_theme_css(theme_id, custom_theme=custom_theme)}</style>
 </head>
-<body>
+<body data-suggestion-search-label="{html.escape(TEXTO_UI["search_suggestion_label"], quote=True)}">
   <main>
     <header class="brand">
       {brand_mark}
@@ -151,10 +239,13 @@ def generate_start_page(
       <p class="subtitle">{html.escape(TEXTO_UI["home_subtitle"])}</p>
     </header>
     <form class="search" method="get">
-      <input type="search" name="q" placeholder="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}"
-             aria-label="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}" autofocus>
+      <input id="home-search-input" type="search" name="q" list="home-search-suggestions"
+             placeholder="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}"
+             aria-label="{html.escape(TEXTO_UI["home_search_placeholder"], quote=True)}"
+             title="{html.escape(TEXTO_UI["suggestions_privacy_hint"], quote=True)}" autofocus>
       <button type="submit">{html.escape(TEXTO_UI["search"])}</button>
     </form>
+    <datalist id="home-search-suggestions">{search_suggestion_options}</datalist>
     {private_notice}
     <section aria-labelledby="favorites-heading">
       <h2 class="section-title" id="favorites-heading">{html.escape(TEXTO_UI["favorites"])}</h2>
@@ -166,6 +257,8 @@ def generate_start_page(
     </section>
     <footer>{html.escape(TEXTO_UI["home_footer"])}</footer>
   </main>
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <script>{_HOME_SEARCH_SCRIPT}</script>
 </body>
 </html>
 """

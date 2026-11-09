@@ -602,6 +602,10 @@ TEXTO_UI = {
     "home_subtitle": "hen! Onde Quer Navegar Hoje?",
     "home_search_placeholder": "Pesquisar ou digitar um endereço",
     "search": "Pesquisar",
+    "search_suggestion_label": "Pesquisar",
+    "suggestions_privacy_hint": (
+        "As sugestões enviam o texto digitado ao buscador selecionado."
+    ),
     "favorites": "Favoritos",
     "password_manager": "Senhas e logins",
     "password_manager_title": "Senhas salvas para este site",
@@ -613,6 +617,7 @@ TEXTO_UI = {
     "password_account": "Conta",
     "password_save_current": "Salvar login desta página",
     "password_save_title": "Salvar login",
+    "password_save_not_now": "Agora não",
     "password_save_notice": (
         "A senha só será salva no cofre do sistema depois que você confirmar."
     ),
@@ -664,8 +669,8 @@ TEXTO_UI = {
     "window_restore": "Restaurar janela",
     "window_minimize": "Minimizar janela",
     "window_resize": "Redimensionar janela",
-    "inspect_page": "Inspecionar página",
-    "inspect_title": "Inspecionar página",
+    "inspect_page": "Inspecionar DOM da página",
+    "inspect_title": "Inspetor DOM da página",
     "inspect_notice": (
         "Inspeção manual. As edições são locais e temporárias; não alteram "
         "os arquivos do site."
@@ -696,8 +701,8 @@ TEXTO_UI = {
     "inspect_invalid_color": "Informe cores válidas, por exemplo #334455.",
     "inspect_update_success": "Alteração temporária aplicada à página.",
     "inspect_update_error": "O elemento não está mais disponível na página.",
-    "devtools_title": "Ferramentas do desenvolvedor",
-    "devtools_action": "Abrir ferramentas do desenvolvedor",
+    "devtools_title": "DevTools do Chromium",
+    "devtools_action": "Abrir DevTools do Chromium",
     "site_security_action": "Segurança do site",
     "site_security_title": "Diagnóstico de segurança do site",
     "site_security_notice": (
@@ -897,7 +902,8 @@ TEXTO_UI = {
     "download_default_name": "download",
     "download_started": "Baixando: {name}",
     "download_completed": "Download concluído: {name}",
-    "download_cancelled": "Download cancelado ou interrompido",
+    "download_cancelled": "Download cancelado",
+    "download_failed": "O download falhou.",
     "browser_downloads_title": "Downloads",
     "browser_downloads_button": "Downloads",
     "close_side_panel": "Fechar painel",
@@ -909,13 +915,19 @@ TEXTO_UI = {
     "browser_downloads_file": "Arquivo",
     "browser_downloads_status": "Estado",
     "browser_downloads_date": "Iniciado em",
+    "browser_download_progress": (
+        "Progresso do download: {received} de {total} bytes ({percent}%)."
+    ),
+    "browser_download_progress_unknown": (
+        "O progresso ainda não está disponível."
+    ),
     "browser_downloads_open": "Abrir arquivo",
     "browser_downloads_open_folder": "Abrir pasta",
     "browser_downloads_remove": "Remover da lista",
     "browser_download_state_active": "Em andamento",
     "browser_download_state_completed": "Concluído",
     "browser_download_state_cancelled": "Cancelado",
-    "browser_download_state_interrupted": "Interrompido",
+    "browser_download_state_interrupted": "Falhou",
     "browser_download_state_unknown": "Desconhecido",
     "browser_download_not_completed": "Este download ainda não foi concluído.",
     "browser_download_file_missing": "O arquivo não foi encontrado no local salvo.",
@@ -932,7 +944,64 @@ TEXTO_UI = {
     "about_title": "Sobre o hen-Nave",
     "about_message": "hen-Nave {version}\n\nNavegador desktop em Python, PySide6 e QtWebEngine.",
     "media_diagnostic": "Testar suporte a vídeo",
+    "gpu_diagnostic": "Como consultar a GPU",
     "media_diagnostic_title": "Diagnóstico de mídia",
+    "performance_panel_title": "Desempenho",
+    "performance_panel_description": (
+        "CPU em porcentagem do total lógico e memória RSS somada do hen-Nave "
+        "e Chromium. A soma pode contar páginas compartilhadas mais de uma vez. "
+        "A leitura compacta fica na barra inferior e atualiza a cada 3 segundos; "
+        "este painel mostra também os tempos da sessão."
+    ),
+    "performance_cpu_label": "CPU total (hen-Nave + Chromium)",
+    "performance_memory_label": "Memória RSS somada",
+    "performance_processes_label": "Processos acompanhados",
+    "performance_cpu_waiting": "Aguardando segunda amostra…",
+    "performance_metrics_unavailable": "Indisponível",
+    "performance_dependency_missing": (
+        "Instale as dependências do requirements.txt para medir CPU e memória."
+    ),
+    "performance_partial": "parcial",
+    "performance_startup_value": "Janela exibida: {value}",
+    "performance_not_measured": "não medido",
+    "performance_navigation_title": "Carregamentos nesta sessão",
+    "performance_navigation_empty": "Nenhum carregamento medido nesta sessão.",
+    "performance_nav_local": "Locais",
+    "performance_nav_web": "Web",
+    "performance_nav_internal": "Internos",
+    "performance_nav_success": "concluído",
+    "performance_nav_failed": "falhou",
+    "performance_nav_row": (
+        "{label}: {count} | média {average} ms | "
+        "último {last} ms ({result})"
+    ),
+    "performance_gpu_open": "Como consultar a GPU",
+    "performance_gpu_note": (
+        "O QtWebEngine escolhe a aceleração automaticamente. O estado da GPU "
+        "não foi confirmado; o botão explica o diagnóstico sem abrir uma aba "
+        "branca."
+    ),
+    "performance_status_format": "CPU {cpu} | RAM {memory}",
+    "performance_status_waiting": "CPU — | RAM —",
+    "performance_status_unavailable": "CPU indisponível | RAM indisponível",
+    "performance_status_tooltip": (
+        "hen-Nave e processos Chromium; atualização a cada 3 segundos. "
+        "RAM é a soma de RSS e pode contar páginas compartilhadas mais de uma vez."
+    ),
+    "gpu_diagnostic_unavailable": (
+        "O log da execução reportada registrou falha ao carregar chrome://gpu, "
+        "o que abriu uma aba branca. O hen-Nave não vai abrir essa página "
+        "novamente. Isso não "
+        "prova que a aceleração gráfica esteja desligada: o QtWebEngine decide "
+        "automaticamente e o aviso de WebGPU, sozinho, não confirma falha geral.\n\n"
+        "No Windows, o Gerenciador de Tarefas pode mostrar atividade da GPU "
+        "enquanto você rola uma página ou reproduz vídeo, mas isso é apenas um "
+        "indício, não uma confirmação completa do compositor."
+    ),
+    "performance_data_saver_note": (
+        "Economia de dados na barra superior reduz algumas imagens, mídias e "
+        "tráfego; isso pode ocultar conteúdo e não garante maior velocidade."
+    ),
     "media_diagnostic_no_page": "Não há uma página ativa para consultar.",
     "media_diagnostic_result": (
         "Suporte informado pelo QtWebEngine:\n"
@@ -953,6 +1022,15 @@ TEXTO_UI = {
     "history_remove": "Remover selecionado",
     "favorites_search_label": "Pesquisar nos favoritos",
     "favorites_search_placeholder": "Nome ou endereço",
+    "favorites_bar_empty": "Nenhum favorito",
+    "favorites_bar_more": "Abrir a lista completa de favoritos",
+    "favorites_bar_scroll_hint": "Role horizontalmente para ver outros favoritos.",
+    "favorite_options_tooltip": "Editar ou remover favorito",
+    "favorite_edit_action": "Editar nome",
+    "favorite_edit_title": "Editar nome do favorito",
+    "favorite_edit_prompt": "Nome mostrado na barra de favoritos:",
+    "favorite_remove_confirm_title": "Remover favorito",
+    "favorite_remove_confirm_message": "Remover “{title}” dos favoritos?",
     "favorite_open": "Abrir em nova aba",
     "favorite_remove": "Remover favorito",
     "history_entry_format": "{title}\n{url}",

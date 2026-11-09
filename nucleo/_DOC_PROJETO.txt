@@ -31,9 +31,10 @@ _APPDATA_/
   Gerencia a pasta do usuário: %APPDATA%/hen-nave no Windows,
   ~/.hen-nave no Linux/macOS.
   Caminhos canônicos, config.json, sessao.json e storage.py (persistência SQLite
-  de histórico, favoritos, sessão, anotações, exceções, favicons e downloads
-  comuns). Favicons PNG de páginas normais são armazenados por host e usados nos
-  cards locais; ícones de navegação anônima não são persistidos.
+  de histórico, favoritos, consultas enviadas, sessão, anotações, exceções,
+  favicons e downloads comuns). Favicons PNG de páginas normais são armazenados
+  por host e usados nos cards locais; ícones de navegação anônima não são
+  persistidos.
   Metadados de provedores não incluem chaves ou tokens.
 
 _THREADS_/
@@ -46,24 +47,36 @@ _APP_/
   Interface da janela principal, painéis de anotações/IA e diálogos do
   bloqueador e das conexões de IA. _APP_/ai_config.py preenche os presets dos
   provedores e consulta modelos do Ollama no serviço local.
-  password_manager.py permite salvar e preencher logins após ação explícita do
-  usuário, limitados à origem HTTPS exata e indisponíveis em janelas anônimas.
+  password_manager.py oferece salvar após envio de formulário de login HTTPS;
+  exige confirmação, usa a origem exata e não funciona em janelas anônimas.
+  O preenchimento continua sendo iniciado pelo usuário.
   O botão de tradução da barra usa o provedor ativo e apresenta a resposta no
   painel da IA, sem substituir a página original.
-  dialogs.py contém as janelas de histórico e favoritos; startpage.py e
-  private_startpage.py criam as páginas iniciais normal e anônima.
-  browser_downloads.py mantém o painel do histórico comum e temporário anônimo.
-  Navegador/abas.py configura a barra de abas móveis e fecháveis; a aba Início
-  permanece única, fixa na primeira posição e não pode ser fechada.
-  security_tools.py fornece o DevTools do Chromium e o diagnóstico manual de
-  endereço, cabeçalhos HTTP e certificado TLS. site_privacy.py consulta as
-  permissões conhecidas e limpa dados da origem aberta.
+  dialogs.py contém as janelas de histórico e favoritos; o atalho lateral de
+  Histórico reutiliza a janela existente e não se confunde com Downloads.
+  startpage.py e private_startpage.py criam as páginas iniciais normal e anônima.
+  O formulário da página inicial envia a busca pelo QWebChannel e a execução é
+  postergada para fora do callback de navegação do QtWebEngine.
+  browser_downloads.py mantém o painel do histórico comum e temporário anônimo,
+  com progresso ao vivo e estados de conclusão, cancelamento e falha.
+  Navegador/abas.py configura abas móveis e fecháveis. Início é uma página comum
+  em uma aba normal; a casinha carrega Início na aba atual e o botão + abre outra
+  aba Início.
+  inspector.py fornece o inspetor DOM próprio; security_tools.py fornece o
+  DevTools do Chromium com controle distinto e diagnóstico manual de endereço,
+  cabeçalhos HTTP e certificado TLS. site_privacy.py consulta as permissões
+  conhecidas e limpa dados da origem aberta. performance_panel.py exibe detalhes
+  de desempenho; performance_status.py mantém CPU/RAM compactos na barra de status
+  e compartilha uma amostragem por aplicativo.
 
 _SERVICOS_/
   Serviços sem interface: adblocker.py/adblock_rules.py, ai_service.py,
   ai_provider_store.py, secure_keyring.py, web_credential_store.py e
   security_analysis.py e video_download.py. Senhas de sites e chaves de IA usam
   o keyring do sistema; os arquivos de configuração guardam somente metadados.
+  performance_diagnostics.py registra durações e mantém estatísticas agregadas
+  da sessão; performance_status.py usa psutil para amostrar CPU/memória do
+  processo e filhos Chromium a cada 3 segundos, sem URLs ou títulos de páginas.
 
 _ULTILIDADES_/
   Ícones, pop-ups padronizados e funções reutilizáveis de URL, captura e host.
@@ -74,11 +87,16 @@ _CONFIGURA_/theme_engine.py
 browser.py
   Controlador de janelas/perfis, páginas WebEngine, downloads, bloqueador,
   zoom, busca, tela cheia, persistência da sessão e integração dos painéis
-  laterais. O botão de tradução na barra solicita a tradução do texto visível
+  laterais. A barra de status mantém uma leitura compacta de CPU/RAM à direita.
+  O botão de tradução na barra solicita a tradução do texto visível
   usando o provedor de IA ativo. Downloads comuns são persistidos; downloads
-  anônimos ficam em memória. O painel de IA é criado durante a montagem da
-  interface, antes da criação das abas. O DevTools embutido acompanha a aba
-  selecionada sem habilitar depuração remota global.
+  anônimos ficam em memória. Links de download que abrem uma aba temporária
+  fecham somente essa aba depois que o usuário aceita o download. O painel de IA
+  é criado durante a montagem da interface, antes da criação das abas. O DevTools
+  embutido acompanha a aba selecionada somente enquanto o painel está visível e
+  se desconecta ao ocultar o painel, evitando consultas a quadros já encerrados.
+  Pop-ups solicitados como janela ou diálogo recebem uma janela Qt própria, com
+  o mesmo perfil da página de origem; pop-ups de aba continuam usando abas.
 
 _APP_/download_video.py
   Painel lateral de processamento de vídeo/áudio e transcrição, ligado à URL atual
@@ -116,7 +134,8 @@ _APP_/private_startpage.py
 _APP_/startpage.py
   HTML local da página inicial; escapa valores dinâmicos e aceita somente
   URLs HTTP(S) nos links. Cards exibem favicons PNG já armazenados localmente e
-  usam a inicial do domínio quando ainda não há ícone disponível.
+  usam a inicial do domínio quando ainda não há ícone disponível. O campo de
+  pesquisa sugere sites locais e recebe sugestões do buscador via QWebChannel.
 
 _ULTILIDADES_/utils.py
   Valida a barra de endereço e converte texto livre no buscador padrão escolhido
@@ -125,13 +144,25 @@ _ULTILIDADES_/utils.py
 _APP_/dialogs.py
   Janelas de histórico e favoritos com busca, abertura e remoção.
 
+_APP_/favorites_bar.py
+  Faixa horizontal compacta de favoritos no rodapé; mostra até dez itens com
+  favicon e nome, botão para abrir e menu de três pontos para editar ou apagar
+  com confirmação; também oferece acesso à lista completa.
+
+_APP_/search_suggestions.py e _SERVICOS_/search_suggestions.py
+  Autocomplete da barra de endereço e da página inicial: catálogo local de
+  sites, favoritos, páginas recentes e até 50 pesquisas já enviadas, mais
+  consultas assíncronas ao buscador selecionado. O canal QWebChannel só fica
+  disponível na página inicial local.
+
 _ULTILIDADES_/popups.py
   Ponto único para configurar e exibir mensagens, avisos, erros e confirmações.
 
 tests/
   Testes unittest para resolução de endereços, SQLite, HTML inicial, bloqueio,
   anotações, páginas temporárias, serviços de IA com HTTP simulado, integração
-  estática dos painéis e do botão de tradução, e registro de exceções em threads.
+  estática dos painéis e do botão de tradução, registro de exceções em threads e
+  medições locais de desempenho e integração do painel lateral de desempenho.
 
 _ULTILIDADES_/
   Ícones, popups e ferramentas reutilizáveis.
@@ -146,7 +177,13 @@ DECISÕES DE ARQUITETURA
   - A página inicial é um arquivo local em AppData, não setHtml; o esquema
     hennave://search é interceptado pela subclasse QWebEnginePage.
   - Somente URLs HTTP(S) entram em histórico, favoritos e sessão.
+  - Pesquisas são guardadas localmente somente após serem enviadas em janelas
+    normais, limitadas às 50 mais recentes; limpar o histórico também as apaga.
+    Janelas anônimas não persistem nem recebem sugestões dessas pesquisas.
   - O perfil anônimo é mantido vivo até a destruição das views que o usam.
+  - Janelas de pop-up solicitadas como janela ou diálogo usam uma view com o
+    perfil da origem, para preservar a sessão de autenticação sem compartilhar
+    dados entre perfis normal e anônimo.
   - A lista de bloqueio inicial é local e pequena; nenhuma URL pública vem
     configurada por padrão.
   - Contadores do bloqueador são protegidos por lock e enviados à interface
@@ -167,6 +204,10 @@ DECISÕES DE ARQUITETURA
     resposta. Conversas por aba vivem apenas na memória da janela. A tradução
     usa o provedor ativo e o mesmo consentimento explícito para serviços na nuvem;
     a página original não é alterada.
+  - A oferta de salvar login é instalada apenas no quadro principal de páginas
+    HTTPS em janelas normais. Ao enviar um formulário com senha preenchida, o
+    envio pausa enquanto o usuário escolhe salvar ou cancelar; a senha só vai ao
+    keyring após confirmação. O modo anônimo não captura credenciais.
   - Os painéis de anotações, downloads, inspeção e IA compartilham a mesma pilha
     lateral abaixo da navegação; os controles da janela permanecem na faixa
     externa direita.
@@ -194,12 +235,19 @@ DECISÕES DE ARQUITETURA
     após confirmação, solicita a remoção de cookies do domínio atual e limpa os
     armazenamentos locais acessíveis pela página. Não apaga o cache HTTP geral
     nem dados de outros domínios.
+  - O diagnóstico de desempenho registra somente tempos de etapas internas,
+    categoria do esquema, duração e sucesso da navegação. Não registra URL, título
+    ou conteúdo da página. Um monitor compartilhado atualiza CPU/RAM a cada três
+    segundos na barra de status; o painel lateral reutiliza a mesma amostra. Os
+    valores não são persistidos. Como `chrome://gpu` falhou e abriu uma aba branca,
+    o menu e o painel mostram uma explicação em diálogo, sem forçar aceleração.
 
 ────────────────────────────────────────────────────────────────────────────────
 DEPENDÊNCIAS EXTERNAS
 ────────────────────────────────────────────────────────────────────────────────
 
   PySide6        — framework Qt e Chromium via QtWebEngine
+  psutil         — métricas locais agregadas de CPU/memória do processo e filhos
   qtawesome      — ícones FontAwesome, opcional para a interface
   keyring        — armazenamento de chaves no cofre seguro do sistema operacional
   yt-dlp         — consulta de metadados e download de vídeo/áudio

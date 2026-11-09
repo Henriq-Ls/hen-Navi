@@ -42,6 +42,97 @@ class DownloadHistoryWiringTests(unittest.TestCase):
         self.assertIn("window.downloads_dock.update_private_download(", source)
         self.assertIn("None if self.private else self.controller.storage", source)
 
+    def test_only_accepted_popup_downloads_close_their_source_tab(self):
+        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        controller = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "BrowserController"
+        )
+        methods = {
+            node.name: node
+            for node in controller.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        request_method = ast.get_source_segment(
+            source,
+            methods["_on_download_requested"],
+        )
+        close_method = ast.get_source_segment(
+            source,
+            methods["_close_popup_download_tab"],
+        )
+        owner_method = ast.get_source_segment(
+            source,
+            methods["_window_for_download"],
+        )
+        window = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "BrowserWindow"
+        )
+        create_tab = next(
+            node
+            for node in window.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_create_tab"
+        )
+        create_tab_source = ast.get_source_segment(source, create_tab)
+
+        self.assertIn("source_page = download.page()", request_method)
+        self.assertLess(
+            request_method.index("if not target:"),
+            request_method.index("download.accept()"),
+        )
+        self.assertLess(
+            request_method.index("download.accept()"),
+            request_method.index(
+                "self._close_popup_download_tab(window, source_page)"
+            ),
+        )
+        self.assertLess(
+            request_method.index("except sqlite3.Error"),
+            request_method.index(
+                "self._close_popup_download_tab(window, source_page)"
+            ),
+        )
+        self.assertIn('view.setProperty("downloadPopup", bool(popup))', create_tab_source)
+        self.assertIn("if view.property(\"downloadPopup\"):", close_method)
+        self.assertIn("window.close_tab(index)", close_method)
+        self.assertIn("view.page() == source_page", owner_method)
+
+    def test_download_progress_updates_the_existing_panel_and_final_states(self):
+        browser_source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        panel_source = (
+            PROJECT_ROOT / "_APP_" / "browser_downloads.py"
+        ).read_text(encoding="utf-8")
+        config_source = (
+            PROJECT_ROOT / "_CONFIGURA_" / "__init__.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("download.receivedBytesChanged.connect", browser_source)
+        self.assertIn("download.totalBytesChanged.connect", browser_source)
+        self.assertIn("window.downloads_dock.update_download_progress(", browser_source)
+        self.assertIn("QProgressBar", panel_source)
+        self.assertIn("def update_download_progress(", panel_source)
+        self.assertIn('"browser_download_state_completed": "Concluído"', config_source)
+        self.assertIn('"browser_download_state_cancelled": "Cancelado"', config_source)
+        self.assertIn('"browser_download_state_interrupted": "Falhou"', config_source)
+
+    def test_navigation_history_has_a_separate_right_sidebar_button(self):
+        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+
+        self.assertIn("self._add_sidebar_action_button(self.history_action)", source)
+        self.assertIn('atalho("historico")', source)
+        self.assertIn(
+            'getattr(self, "history_action", None): "historyButton"',
+            source,
+        )
+        self.assertIn("self.history_action.setEnabled(not self.private)", source)
+
     def test_message_boxes_are_created_through_the_shared_popup_module(self):
         forbidden_calls = {"warning", "information", "question", "critical", "about"}
         offenders = []

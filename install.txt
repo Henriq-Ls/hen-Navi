@@ -6,8 +6,12 @@ python -m venv .venv
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\.venv\Scripts\Activate.ps1
 
-python.exe -m pip install --upgrade pip    
-python -m pip install --upgrade setuptools wheel   
-pip install PySide6 
+python.exe -m pip install --upgrade pip
+python -m pip install --upgrade setuptools wheel
+pip install PySide6
 pip install qtawesome
-pip install yt-dlp anthropic keyring pytest
+pip install yt-dlp
+pip install anthropic
+pip install keyring
+pip install pytest
+python -m pip install "psutil>=6.1,<8"

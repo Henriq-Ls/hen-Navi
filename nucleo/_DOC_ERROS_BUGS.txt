@@ -101,4 +101,21 @@ Solução: Importada a constante já definida em _CONFIGURA_/__init__.py.
 Verificação: Teste de ligação e compileall passaram; não foi possível testar o
   download real no Windows neste ambiente.
 
+[AUTOCOMPLETE-BUSCA] STATUS: CORREÇÃO APLICADA; VALIDAR NO WINDOWS
+Data descoberta: 2026-11-08
+Descrição: A página inicial e a barra de endereço não mostravam sugestões de
+  sites nem de pesquisas enquanto o usuário digitava.
+Como reproduzir: Digitar parcialmente um site conhecido, como “Go” ou “Pin”, ou
+  uma consulta na página inicial ou na barra de endereço.
+Causa suspeita: A página inicial tinha apenas um campo de busca simples e a
+  barra de endereço só resolvia o texto depois de pressionar Enter.
+Solução / workaround: Adicionadas sugestões locais de sites, favoritos, páginas
+  recentes e pesquisas já enviadas nos dois campos, além de sugestões assíncronas
+  do buscador selecionado. Até 50 consultas ficam no SQLite após o envio em uma
+  janela normal; não se salvam em modo anônimo e são apagadas ao limpar o histórico.
+  O texto digitado continua sendo enviado ao buscador após dois caracteres.
+Verificação: Testes automatizados, compileall e git diff --check passaram.
+  Quatro testes que dependem de PySide6 são pulados neste ambiente. A interface
+  Qt real e a edição da faixa de favoritos ainda precisam de validação no Windows.
+
 ════════════════════════════════════════════════════════════════════════════════

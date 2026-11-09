@@ -1,4 +1,4 @@
-════════════════════════════════════════════════════════════════════════════════
+c atualizou o ════════════════════════════════════════════════════════════════════════════════
   ÚLTIMAS CORREÇÕES E ALTERAÇÕES
 ════════════════════════════════════════════════════════════════════════════════
 
@@ -9,6 +9,36 @@ Formato:
   Solução aplicada:
 
 ────────────────────────────────────────────────────────────────────────────────
+
+[2026-11-09] Evitadas consultas DevTools a quadros já encerrados
+Arquivos alterados: browser.py, tests/test_security_tools_wiring.py,
+  nucleo/_DOC_PROJETO.txt
+Causa raiz: O frontend DevTools permanecia conectado à página mesmo com o painel
+  oculto. Após navegações e fechamento de quadros, podia consultar IDs que já
+  não existiam e emitir `Storage.getStorageKeyForFrame failed` no terminal. A
+  mensagem vem do protocolo interno do DevTools, não do armazenamento do site.
+Solução aplicada: Anexar DevTools somente quando seu painel está visível e
+  desconectar ao ocultar, trocar de painel ou trocar de página. Não foram
+  silenciados logs gerais do Chromium.
+Verificação: Teste de ligação adicionado; validação Qt real depende do Windows,
+  pois PySide6 não está instalado neste ambiente.
+
+[2026-11-09] Ajustado o fluxo de janelas de autenticação
+Arquivos alterados: browser.py, tests/test_oauth_popup_wiring.py, README.md,
+  nucleo/_DOC_PROJETO.txt
+Causa provável: Todos os pedidos de janela criados por páginas eram convertidos
+  em abas, sem respeitar os tipos WebBrowserWindow e WebDialog. Os logs também
+  registravam falha do Google FedCM ao obter token e avisos de COOP durante o
+  fluxo de autenticação.
+Solução aplicada: Respeitar os tipos de janela solicitados, abrir diálogos de
+  autenticação em uma janela Qt com o mesmo perfil e fechar a janela quando a
+  página pedir. JavaScript, pop-ups JavaScript e armazenamento local agora são
+  habilitados explicitamente; cookies não foram ampliados nem permissões globais
+  concedidas.
+Verificação: 3 testes de ligação novos passaram e compileall passou. Na suíte
+  completa, 178 passaram, 4 foram pulados, 1 falha antiga de favoritos continua
+  e 1 teste Qt não pôde importar porque PySide6 não está instalado aqui. O
+  comportamento real do FedCM ainda precisa de validação no Windows.
 
 [2026-11-03] Corrigida inicialização do painel de IA
 Arquivos alterados: browser.py, tests/test_capture_wiring.py
@@ -160,6 +190,34 @@ Checagem solicitada das senhas: confirmada. Os metadados em web_logins.json
   criptografia própria do hen-Nave. Os testes simulam o keyring; este ambiente
   não permitiu verificar o cofre real do Windows.
 
+[2026-11-08] Adicionada faixa compacta de favoritos ao rodapé
+Arquivos alterados: _APP_/favorites_bar.py, browser.py, _CONFIGURA_/__init__.py,
+  tests/test_favorites_status_bar_wiring.py, README.md,
+  nucleo/_DOC_PROJETO.txt
+Solução aplicada: Mostrar até dez favoritos em ordem alfabética, com favicon e
+  nome de largura variável. O menu de três pontos permite editar o nome e
+  remover o item com confirmação; um botão abre a lista completa.
+Diagnóstico do Pinterest: Os logs registram falha do Google FedCM ao obter token
+  e negação de acesso ao armazenamento. Não há exceção do clique no código do
+  hen-Nave. Nenhuma senha foi acessada e nenhuma permissão global de cookies foi
+  aberta.
+Verificação: Testes de integração da barra, armazenamento e abas passaram;
+  interface Qt real ainda precisa de conferência no Windows.
+
+[2026-11-08] Adicionadas sugestões à página inicial e à barra de endereço
+Arquivos alterados: _APP_/startpage.py, _APP_/search_suggestions.py,
+  _SERVICOS_/search_suggestions.py, browser.py, _CONFIGURA_/__init__.py,
+  tests/test_search_suggestions.py, README.md, nucleo/_DOC_PROJETO.txt,
+  nucleo/_DOC_ERROS_BUGS.txt
+Solução aplicada: Sites conhecidos, favoritos e páginas recentes aparecem como
+  sugestões locais nos dois campos. Consultas com pelo menos dois caracteres
+  também usam autocomplete assíncrono do buscador selecionado. A página local
+  conversa com o Qt via QWebChannel; o canal é removido ao navegar para sites
+  externos. A interface informa que o texto digitado é enviado ao buscador.
+Verificação: 158 testes executados, 4 pulados por falta de PySide6; os demais
+  passaram. compileall e git diff --check passaram. A interface Qt real não foi
+  aberta neste ambiente.
+
 [2026-11-07] Tornada visível a estrela de favorito não salvo
 Arquivos alterados: _CONFIGURA_/theme_engine.py, _ULTILIDADES_/icones.py,
   tests/test_theme_engine.py, tests/test_capture_wiring.py
@@ -204,5 +262,218 @@ Solução aplicada: Substituir o seletor nativo por QFileDialog Qt não nativo,
 Verificação: 139 testes passaram; 4 foram pulados porque PySide6 não está
   instalado neste ambiente. compileall e git diff --check passaram. O seletor e
   uploads reais ainda precisam ser validados no executável Windows.
+
+[2026-11-08] Salvas pesquisas enviadas para sugestões locais
+Arquivos alterados: _APPDATA_/storage.py, _APP_/startpage.py, browser.py,
+  tests/test_storage.py, tests/test_search_suggestions.py, README.md,
+  nucleo/_DOC_PROJETO.txt, nucleo/_DOC_ERROS_BUGS.txt
+Causa raiz: As sugestões mostravam sites conhecidos, favoritos, páginas recentes
+  e resultados do buscador, mas não lembravam pesquisas anteriores do usuário.
+Solução aplicada: Salvar no SQLite somente consultas enviadas, com limite de 50,
+  atualizar a data quando uma consulta se repete e incluir os termos nos dois
+  campos de pesquisa. O modo anônimo não grava nem exibe essas consultas; limpar
+  o histórico também as remove.
+Verificação: 162 testes executados; 158 passaram e 4 foram pulados por falta de
+  PySide6. compileall e git diff --check passaram. A interface Qt real continua
+  pendente de validação no Windows.
+
+[2026-11-08] Adicionada oferta para salvar senhas ao enviar formulários
+Arquivos alterados: _APP_/password_manager.py, browser.py,
+  _CONFIGURA_/__init__.py, tests/test_password_manager_wiring.py, README.md,
+  nucleo/_DOC_PROJETO.txt
+Causa raiz: O gerenciador de senhas só capturava campos quando o usuário abria o
+  menu e clicava em “Salvar login desta página”.
+Solução aplicada: Em formulários HTTPS padrão, a janela normal detecta o envio
+  quando há senha preenchida, pausa o envio e mostra a confirmação nativa. Salvar
+  exige confirmação e usa o keyring; cancelar retoma o envio sem salvar. Janelas
+  anônimas e quadros internos não capturam credenciais. O fluxo manual continua
+  como alternativa para sites sem formulário padrão.
+Verificação: 164 testes executados; 160 passaram e 4 foram pulados por falta de
+  PySide6. compileall e git diff --check passaram. Formulários Qt reais ainda
+  precisam ser testados no executável Windows.
+
+[2026-11-08] Mantida faixa de favoritos visível durante avisos
+Arquivos alterados: browser.py, tests/test_favorites_status_bar_wiring.py,
+  README.md, nucleo/_ULTIMOS_FIX.txt
+Causa raiz: A faixa era um widget permanente da QStatusBar; mensagens
+  temporárias, como “Login salvo”, ocultam widgets permanentes no Qt.
+Solução aplicada: Separar a faixa da barra de mensagens e mantê-la no rodapé.
+  Ela continua oculta em tela cheia e reaparece ao sair desse modo. Os favoritos
+  não eram apagados: os cards da página inicial continuaram visíveis.
+Diagnóstico dos anexos: A captura confirma os favoritos nos cards da página
+  inicial. CRASH_NATIVO registra NameError para STATUS_DOWNLOAD_INICIO_MS durante
+  um download; a constante está importada e definida no código-fonte atual, então
+  o executável precisa ser comparado/recompilado antes de tratar isso como erro
+  da versão atual. LOG_GERAL registra falhas COM do Windows e aviso de origem
+  file://, sem evidência de exclusão dos favoritos; não são a causa da faixa
+  desaparecer.
+Verificação: 164 testes executados; 160 passaram e 4 foram pulados por falta de
+  PySide6. compileall e git diff --check passaram. A interface Qt real ainda
+  precisa ser conferida no Windows. Próximo estado: testar a faixa na versão
+  recompilada, inclusive após salvar uma senha e sair da tela cheia.
+
+[2026-11-08] Registradas pendências de downloads e barra lateral
+Arquivo alterado: nucleo/proximos.txt
+Escopo: Documentados fechamento da aba temporária de download, correção dos
+  botões de inspeção, indicador de progresso e atalho do histórico na barra
+  lateral direita.
+Estado: Somente registrado para a próxima sessão; nenhum código ou
+  comportamento do aplicativo foi alterado nesta etapa.
+
+[2026-11-08] Registrada pendência adicional da faixa de favoritos
+Arquivo alterado: nucleo/proximos.txt
+Escopo: Documentados o rodapé de favoritos ausente na captura mais recente e os
+  três controles solicitados por item: abrir, editar e apagar.
+Estado: Apenas registrado para a próxima sessão; nenhum código foi alterado.
+
+[2026-11-08] Implementadas melhorias de downloads, barra lateral e favoritos
+Arquivos alterados: browser.py, _APP_/browser_downloads.py,
+  _APP_/favorites_bar.py, _ULTILIDADES_/icones.py, _CONFIGURA_/__init__.py,
+  README.md, nucleo/_DOC_PROJETO.txt, nucleo/proximos.txt e testes associados.
+Causa raiz: O pedido de download não identificava a aba de origem para fechá-la
+  com segurança; o painel não mostrava progresso; os botões de inspeção usavam
+  ícones semelhantes; faltava atalho lateral para o histórico; editar e apagar
+  favoritos estavam escondidos em um menu.
+Solução aplicada: Registrar a página e a janela de origem do download e fechar
+  somente a aba marcada como pop-up após a aceitação. O painel existente agora
+  exibe progresso e estados finais. DevTools e inspetor DOM têm nomes e ícones
+  distintos; Histórico reutiliza a ação existente na barra direita. A faixa de
+  favoritos expõe botões acessíveis para abrir, editar e apagar com confirmação.
+  A visibilidade inicial foi explicitada sem alterar os favoritos armazenados.
+Verificação: compileall passou; 167 testes executados, 163 passaram e 4 foram
+  pulados porque PySide6 não está instalado. O aplicativo não pôde ser aberto
+  neste ambiente; a reprodução da faixa e a conferência do executável continuam
+  pendentes no Windows.
+
+[2026-11-08] Corrigida faixa que aparentava perder os favoritos ao editar
+Arquivos alterados: _APP_/favorites_bar.py, _CONFIGURA_/__init__.py, README.md,
+  nucleo/_DOC_PROJETO.txt, nucleo/proximos.txt e testes de favoritos/SQLite.
+Causa raiz: A edição redesenhava a faixa diretamente e também acionava o
+  redesenho da janela; além disso, a posição horizontal anterior podia ficar
+  fora do conteúdo após a mudança de largura. O SQLite não removia os favoritos.
+Solução aplicada: Deixar a atualização centralizada em um único sinal, voltar
+  a usar um único menu de três pontos para editar/remover e reiniciar a posição
+  horizontal após atualizar a faixa. O teste de armazenamento confirma que
+  renomear um item preserva os demais favoritos.
+Verificação: compileall passou; 169 testes executados, 165 passaram e 4 foram
+  pulados porque PySide6 não está instalado. A interface Qt ainda não pôde ser
+  reproduzida visualmente neste ambiente.
+
+[2026-11-08] Comparados logs do Windows com o código atual
+Arquivos consultados: attached_assets/CRASH_NATIVO_1794176141050.log,
+  attached_assets/LOG_GERAL_1794176141051.log, browser.py,
+  _CONFIGURA_/__init__.py e _APP_/favorites_bar.py.
+Diagnóstico: O log local registra NameError para STATUS_DOWNLOAD_INICIO_MS e
+  aponta uma linha antiga de browser.py. No workspace atual, a constante está
+  importada e definida; isso indica execução de uma cópia diferente ou sem as
+  alterações sincronizadas. As mensagens Storage.getStorageKeyForFrame referem-se
+  a quadros do DevTools que já não existem e não apontam para a barra de favoritos.
+Estado: A atualização do código do Replit não pode alterar diretamente a cópia
+  local do Windows. A barra atual está corrigida no workspace, mas precisa ser
+  testada na cópia sincronizada para confirmar o resultado visual.
+
+[2026-11-08] Adicionadas medições iniciais de desempenho
+Arquivos alterados: main.py, browser.py, _SERVICOS_/performance_diagnostics.py,
+  tests/test_performance_diagnostics.py, nucleo/desempenho.txt e
+  nucleo/_DOC_PROJETO.txt.
+Escopo: Registrar tempos de inicialização até a janela ser exibida e duração,
+  categoria e resultado de cada carregamento. As medições não incluem URLs,
+  títulos ou conteúdo. Nenhuma configuração de cache, segurança ou GPU foi
+  alterada.
+Verificação: 7 testes novos passaram; compileall e git diff --check passaram.
+  A suíte completa executou 177 testes, com 1 falha antiga no teste de
+  favoritos, 1 erro por PySide6 ausente e 4 testes pulados por PySide6 ausente.
+Estado: O mapeamento do fluxo e as medições de tempo estão validados no workspace.
+  Falta abrir o hen-Nave e repetir cenários no Windows do usuário; CPU/memória e
+  aceleração gráfica ainda não foram medidos.
+
+[2026-11-08] Analisada a primeira coleta de desempenho no Windows
+Arquivos consultados: logs enviados pelo usuário, browser.py,
+  _CONFIGURA_/__init__.py e nucleo/desempenho.txt.
+Resultado: O log confirmou os três marcos de inicialização (4456, 5558 e
+  7272 ms), quatro carregamentos locais (752, 541, 394 e 434 ms) e três
+  carregamentos web concluídos (4972, 6338 e 11322 ms). Sem rótulos de cenário
+  e uma medição anterior, não há comparação válida; nenhuma otimização foi feita,
+  então não era esperado notar diferença.
+GPU: O aviso "Failed to create WebGPU Context Provider" é insuficiente para
+  concluir que toda a aceleração gráfica falhou. Não há estado de GPU medido.
+Compatibilidade: O crash menciona STATUS_DOWNLOAD_INICIO_MS ausente em
+  browser.py:871, mas a constante está definida e importada no workspace atual e
+  a linha 871 pertence a outro método. Como o usuário executou main.py, a cópia
+  local do código pode estar desatualizada ou misturada; confirmar a sincronização.
+
+[2026-11-08] Testada a leitura de CPU/RAM e identificado o diagnóstico em branco
+Resultado: A imagem confirmou CPU 1,9%, RAM RSS somada de 2440 MiB e 9 processos.
+  O log mostrou janela exibida em 2413 ms, navegações locais de 715/380/293 ms,
+  web de 5614/11183 ms e uma navegação interna falha em 39 ms. A navegação curta
+  corresponde à tentativa de abrir `chrome://gpu`; a captura mostra uma aba branca.
+Limites: A RSS agregada pode contar páginas compartilhadas mais de uma vez.
+  O aviso WebGPU e a navegação falha não permitem concluir se o compositor usa GPU.
+Correção em 2026-11-09: O menu/painel agora explicam a limitação num diálogo e não
+  abrem uma aba branca. CPU/RAM ficam sempre na barra de status, atualizadas a
+  cada 3 segundos por um monitor compartilhado com o painel detalhado.
+Estado: A integração está coberta por testes estáticos; falta validar no Windows
+  a nova leitura permanente e confirmar que o diálogo substitui a aba vazia.
+
+[2026-11-08] Adicionado painel de desempenho à barra vertical direita
+Arquivos alterados: _APP_/performance_panel.py, _SERVICOS_/performance_diagnostics.py,
+  browser.py, _CONFIGURA_/__init__.py, requirements.txt, README.md,
+  tests/test_performance_diagnostics.py, tests/test_capture_wiring.py,
+  nucleo/desempenho.txt e nucleo/_DOC_PROJETO.txt.
+Escopo: O painel mede CPU/memória do processo hen-Nave e seus filhos Chromium,
+  mostra o total de processos, tempos de inicialização e resumo das navegações
+  desta sessão; abre o diagnóstico da GPU. A amostragem roda a cada segundo só
+  enquanto o painel estiver aberto. A dependência psutil só é carregada ao abrir
+  o painel; nada é enviado ou salvo entre sessões. Não existe modo genérico
+  "turbo" nem opção para forçar GPU; o controle existente de Economia de dados
+  continua sendo uma opção separada.
+Verificação: 9 testes de desempenho e 19 testes de integração da interface
+  passaram; compileall e git diff --check passaram; amostragem real via psutil
+  funcionou neste ambiente. A suíte completa executou 181 testes: 1 falha antiga
+  do teste de favoritos, 1 erro porque PySide6 não está instalado e 4 testes
+  pulados pela ausência de PySide6.
+Estado: O painel e o acesso a `chrome://gpu` estão implementados, mas a interface
+  Qt não pôde ser aberta neste workspace. O usuário executa `main.py`; precisa
+  sincronizar os arquivos do projeto, instalar requirements.txt e validar o
+  painel/GPU no Windows. Nenhuma otimização foi aplicada sem baseline comparável.
+
+[2026-11-09] Leitura contínua na barra de status e correção da aba branca
+Arquivos alterados: _APP_/performance_status.py, _APP_/performance_panel.py,
+  browser.py, _CONFIGURA_/__init__.py, tests/test_capture_wiring.py,
+  README.md, nucleo/desempenho.txt e nucleo/_DOC_PROJETO.txt.
+Escopo: A barra inferior mostra CPU/RAM à direita. Um monitor compartilhado pelo
+  app coleta a árvore de processos a cada 3 segundos e alimenta o status e o
+  painel detalhado; abrir o painel não cria uma segunda coleta. O botão que
+  tentava abrir `chrome://gpu` agora mostra uma explicação em diálogo, sem criar
+  a aba branca observada no log.
+Validação: 19 testes de integração da interface, 9 testes de métricas,
+  compileall e git diff --check passaram. A suíte completa executou 181 testes:
+  1 falha pré-existente no teste de favoritos, 1 erro por PySide6 ausente neste
+  ambiente e 4 testes pulados por PySide6.
+Limite: Este workspace não consegue abrir a janela Qt/Windows. O código preserva
+  a página ativa ao clicar no painel, mas a leitura fixa e o diálogo precisam ser
+  confirmados na cópia Windows. A captura anterior mostra que a aba branca era
+  `Nova aba`; o log também registra falha da navegação interna de GPU em 39 ms.
+
+[2026-11-09] Removida a aba Início fixa e corrigido o envio da busca inicial
+Arquivos alterados: browser.py, _APP_/startpage.py,
+  _APP_/search_suggestions.py, _ULTILIDADES_/icones.py,
+  tests/test_tab_behavior.py e nucleo/_DOC_PROJETO.txt.
+Diagnóstico: O log da busca por Claude termina em `0x80000003`; a pilha mostra
+  `acceptNavigationRequest` chamando `_search_from_home`, que gravava a busca e
+  atualizava todas as páginas iniciais sincronicamente dentro do callback do
+  QtWebEngine. Isso tentava recarregar o arquivo local antes do callback acabar.
+Correção: O formulário agora envia a consulta pelo QWebChannel e a busca é
+  enfileirada fora do callback; o fallback de navegação também é enfileirado.
+  Gravar uma busca não recarrega a página. Os resultados abrem na aba atual.
+Abas: Início agora é normal, móvel e fechável; a casinha carrega Início na aba
+  atual; `+` cria outra aba Início, com ícone de mais em quadrado. Fechar a última
+  aba abre uma nova aba Início normal, sem fixá-la.
+Verificação: 9 testes de abas, 8 de sugestões, compileall e git diff --check
+  passaram. A suíte completa permanece em 181 testes, com a falha existente do
+  teste de favoritos, o teste Qt que não roda sem PySide6 e 4 testes pulados.
+Limite: A busca e o comportamento visual ainda precisam ser confirmados no
+  Windows do usuário. O `CRASH_NATIVO` também contém um erro separado de download
+  (`STATUS_DOWNLOAD_INICIO_MS` indefinido) que não é causado pela busca.
 
 ════════════════════════════════════════════════════════════════════════════════

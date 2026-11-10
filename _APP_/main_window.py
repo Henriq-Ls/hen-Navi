@@ -64,7 +64,6 @@ class MainWindow(BrowserWindow):
                 )
         except (TypeError, ValueError, RuntimeError) as error:
             log.aviso("MainWindow", "_restore_window_state", str(error))
-        self._pin_window_controls_to_right()
 
     def _save_window_state(self):
         if self.private:

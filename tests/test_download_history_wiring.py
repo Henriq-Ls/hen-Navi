@@ -15,18 +15,47 @@ class DownloadHistoryWiringTests(unittest.TestCase):
         self.assertIn("STATUS_DOWNLOAD_INICIO_MS,", browser_source)
         self.assertIn("STATUS_DOWNLOAD_INICIO_MS = 5000", config_source)
 
-    def test_download_history_uses_shared_side_panel_and_right_toolbar_action(self):
-        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+    def test_download_history_uses_shared_panel_and_embedded_sidebar_action(self):
+        source = (
+            (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT
+                / "_APP_"
+                / "barra_direita_tools"
+                / "manager.py"
+            ).read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT / "_BROWSER_" / "window_panels.py"
+            ).read_text(encoding="utf-8")
+        )
+        sidebar_source = (
+            PROJECT_ROOT
+            / "_APP_"
+            / "barra_direita_tools"
+            / "sidebar.py"
+        ).read_text(encoding="utf-8")
 
-        self.assertIn("self._create_browser_downloads_dock()", source)
+        self.assertIn("self.tools_manager.initialize()", source)
+        self.assertIn("self._add_panel(parent.downloads_dock)", source)
         self.assertIn(
-            "self._side_panel_stack.addWidget(self.downloads_dock)",
+            "context.sidebar.add_action_button(\n            context.downloads_action",
             source,
         )
         self.assertIn(
-            'self._add_sidebar_action_button(self.downloads_action)',
+            "self.sidebar_toolbar = RightToolsSidebar(\n"
+            "            self._body_row,\n"
+            "            translate_callback=self.translate_current_page,\n"
+            "            icon_size=theme[\"sidebar_icon_size_px\"],\n"
+            "        )",
             source,
         )
+        self.assertIn(
+            "self.addWidget(button)",
+            sidebar_source,
+        )
+        self.assertNotIn("_add_sidebar_action_button", source)
         self.assertIn('"downloads": (', source)
         self.assertIn("self.toggle_browser_downloads", source)
         self.assertIn('self._toggle_side_panel("downloads")', source)
@@ -34,13 +63,29 @@ class DownloadHistoryWiringTests(unittest.TestCase):
         self.assertIn("ico_downloads()", source)
 
     def test_normal_downloads_are_persisted_and_private_ones_stay_in_memory(self):
-        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        source = (
+            (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT
+                / "_APP_"
+                / "barra_direita_tools"
+                / "manager.py"
+            ).read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT / "_BROWSER_" / "window_panels.py"
+            ).read_text(encoding="utf-8")
+        )
 
         self.assertIn("self.storage.record_browser_download(", source)
         self.assertIn("self.storage.update_browser_download(entry_id, status)", source)
         self.assertIn("window.downloads_dock.add_private_download(", source)
         self.assertIn("window.downloads_dock.update_private_download(", source)
-        self.assertIn("None if self.private else self.controller.storage", source)
+        self.assertIn(
+            "None if context.private else context.controller.storage",
+            source,
+        )
 
     def test_only_accepted_popup_downloads_close_their_source_tab(self):
         source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
@@ -107,7 +152,10 @@ class DownloadHistoryWiringTests(unittest.TestCase):
     def test_download_progress_updates_the_existing_panel_and_final_states(self):
         browser_source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
         panel_source = (
-            PROJECT_ROOT / "_APP_" / "browser_downloads.py"
+            PROJECT_ROOT
+            / "_APP_"
+            / "barra_direita_tools"
+            / "browser_downloads.py"
         ).read_text(encoding="utf-8")
         config_source = (
             PROJECT_ROOT / "_CONFIGURA_" / "__init__.py"
@@ -123,14 +171,24 @@ class DownloadHistoryWiringTests(unittest.TestCase):
         self.assertIn('"browser_download_state_interrupted": "Falhou"', config_source)
 
     def test_navigation_history_has_a_separate_right_sidebar_button(self):
-        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        source = (
+            (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT
+                / "_APP_"
+                / "barra_direita_tools"
+                / "manager.py"
+            ).read_text(encoding="utf-8")
+        )
 
-        self.assertIn("self._add_sidebar_action_button(self.history_action)", source)
-        self.assertIn('atalho("historico")', source)
         self.assertIn(
-            'getattr(self, "history_action", None): "historyButton"',
+            "self.context.sidebar.add_action_button(\n            self.context.history_action",
             source,
         )
+        self.assertIn('"historyButton"', source)
+        self.assertNotIn("_add_sidebar_action_button", source)
+        self.assertIn('atalho("historico")', source)
         self.assertIn("self.history_action.setEnabled(not self.private)", source)
 
     def test_message_boxes_are_created_through_the_shared_popup_module(self):

@@ -78,30 +78,6 @@ def _excepthook(tipo, valor, tb):
 
 sys.excepthook = _excepthook
 
-# ── Filtro VEH: silencia 0x8001010d (RPC_E_WRONG_THREAD) no Windows ──────────
-# QMediaPlayer / WMF levanta essa exceção SEH internamente — é esperado pela MS.
-# Sem este filtro o faulthandler imprime "Windows fatal exception" falso.
-if sys.platform == "win32":
-    try:
-        import ctypes as _ctypes
-        _PVECTORED_HANDLER = _ctypes.WINFUNCTYPE(_ctypes.c_long, _ctypes.c_void_p)
-
-        @_PVECTORED_HANDLER
-        def _veh_com_filter(exc_info):
-            try:
-                exc_rec = _ctypes.c_size_t.from_address(exc_info).value
-                code    = _ctypes.c_uint.from_address(exc_rec    ).value
-                flags   = _ctypes.c_uint.from_address(exc_rec + 4).value
-                if code == 0x8001010D and not (flags & 0x1):
-                    return -1  # EXCEPTION_CONTINUE_EXECUTION
-            except Exception:
-                pass
-            return 1  # EXCEPTION_CONTINUE_SEARCH
-
-        _ctypes.windll.kernel32.AddVectoredExceptionHandler(1, _veh_com_filter)
-    except Exception:
-        pass
-
 # ── Single instance — impede abrir o app duas vezes ──────────────────────────
 from PySide6.QtCore import QLockFile
 import tempfile
@@ -124,18 +100,26 @@ if not _lock_file.tryLock(100):
 # ── Imports Qt e módulos do projeto ───────────────────────────────────────────
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont, QIcon
-from PySide6.QtCore import qInstallMessageHandler, QtMsgType
+from PySide6.QtCore import QLoggingCategory, qInstallMessageHandler, QtMsgType
 
 from _CONFIGURA_ import (
     FONTE_NOME_UI, FONTE_TAMANHO_BASE,
     TITULO_APP, IMAGEM_ICO, TEMA_QT
 )
 from _SERVICOS_.performance_diagnostics import record_startup_stage
+from _SERVICOS_.graphics_diagnostics import (
+    capture_qt_graphics_message,
+    graphics_logging_rules,
+)
 from browser import BrowserController, register_custom_url_scheme
 
 
 def _qt_msg_handler(mode, context, message):
     """Filtra e loga mensagens internas do Qt."""
+    capture_qt_graphics_message(
+        getattr(context, "category", ""),
+        message,
+    )
     if "setPointSize" in message and "Point size <= 0" in message:
         return  # qtawesome usa pixelSize; pointSize retorna -1 por design
     if mode == QtMsgType.QtWarningMsg:
@@ -147,6 +131,9 @@ def _qt_msg_handler(mode, context, message):
 def main():
     log.info("main.py", "main", f"{TITULO_APP} iniciando...")
 
+    QLoggingCategory.setFilterRules(
+        graphics_logging_rules(os.environ.get("QT_LOGGING_RULES", ""))
+    )
     qInstallMessageHandler(_qt_msg_handler)
     register_custom_url_scheme()
     app = QApplication(sys.argv)

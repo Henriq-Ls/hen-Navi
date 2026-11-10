@@ -39,18 +39,38 @@ class FavoritesStatusBarWiringTests(unittest.TestCase):
             if isinstance(node, ast.FunctionDef)
         }
 
-    def test_favorites_footer_is_separate_from_temporary_status_messages(self):
+    def test_favorites_and_temporary_status_share_one_footer_row(self):
         self.assertIn("FavoritesStatusBar(", self.browser_source)
         self.assertIn(
-            "self._left_layout.addWidget(self.favorites_status_bar)",
+            "self._footer_layout.addWidget(self.favorites_status_bar, 1)",
             self.browser_source,
         )
         self.assertNotIn(
-            "self._status_bar.addPermanentWidget(self.favorites_status_bar",
+            "self._left_layout.addWidget(self.favorites_status_bar)",
             self.browser_source,
         )
-        self.assertIn("self.favorites_status_bar.hide()", self.browser_source)
-        self.assertIn("self.favorites_status_bar.show()", self.browser_source)
+        self.assertIn("self._footer_bar.hide()", self.browser_source)
+        self.assertIn("self._footer_bar.show()", self.browser_source)
+        self.assertIn(
+            "self._footer_layout.addWidget(self._status_bar, 0)",
+            self.browser_source,
+        )
+        self.assertIn(
+            "self._status_bar.addWidget(self.performance_readout)",
+            self.browser_source,
+        )
+        self.assertIn(
+            "self._status_bar.setFixedSize(220, footer_height)",
+            self.browser_source,
+        )
+        self.assertNotIn(
+            "self._status_bar.addPermanentWidget(self.performance_readout)",
+            self.browser_source,
+        )
+        self.assertNotIn(
+            'self._status_bar.showMessage(TEXTO_UI["ready"])',
+            self.browser_source,
+        )
         self.assertIn(
             "self.favorites_status_bar.setVisible(True)",
             self.browser_source,
@@ -76,8 +96,10 @@ class FavoritesStatusBarWiringTests(unittest.TestCase):
         self.assertIn("menu.addAction(", self.bar_source)
         self.assertIn("ico_editar()", self.bar_source)
         self.assertIn("ico_lixo()", self.bar_source)
-        self.assertIn('self._edit_favorite(target, current_title)', self.bar_source)
-        self.assertIn('self._remove_favorite(target, current_title)', self.bar_source)
+        self.assertIn("edit_action.triggered.connect(", self.bar_source)
+        self.assertIn("self._edit_favorite(", self.bar_source)
+        self.assertIn("delete_action.triggered.connect(", self.bar_source)
+        self.assertIn("self._remove_favorite(", self.bar_source)
         self.assertIn('TEXTO_UI["favorite_options_tooltip"]', self.bar_source)
         self.assertIn("self.storage.add_favorite(url, new_title)", self.bar_source)
         self.assertIn("self.storage.remove_favorite(url)", self.bar_source)

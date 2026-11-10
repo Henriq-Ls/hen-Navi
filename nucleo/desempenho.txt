@@ -100,6 +100,16 @@ PRIMEIRA COLETA NO WINDOWS — 2026-11-08
   CPU/RAM é local e nada é enviado para fora ou salvo entre sessões. CPU é uma
   porcentagem do total de núcleos lógicos; memória soma RSS e pode contar páginas
   compartilhadas mais de uma vez.
+- Atualização no workspace: o Qt captura somente as linhas gráficas permitidas
+  da categoria oficial `qt.webenginecontext` e as mantém em memória. O botão
+  `Diagnosticar GPU` consulta WebGL/WebGPU apenas após clique, sem URL/conteúdo,
+  sem abrir `chrome://gpu` e sem alterar flags. A disponibilidade das APIs não
+  prova que a composição da página esteja acelerada; sem renderer confiável o
+  resultado continua inconclusivo. Referência: Qt WebEngine Features,
+  “Enable logging and troubleshooting”.
+- O botão `Zerar amostras de navegação` limpa apenas as médias da sessão para
+  facilitar uma rodada controlada; preserva o tempo de inicialização e não apaga
+  histórico. Isso ainda não constitui uma linha de base antes/depois salva.
 - Não foi criado um modo genérico “turbo” nem um controle para forçar GPU:
   não há gargalo comprovado nem ganho medido. O controle existente “Economia de
   dados” pode bloquear imagens/mídia/prefetch, mas pode ocultar conteúdo e não
@@ -178,6 +188,11 @@ desmarcadas.
     URLs ou títulos.
   - [x] Medir CPU/memória do processo e filhos Chromium localmente enquanto o
     painel lateral está aberto.
+  - [x] Capturar o contexto gráfico publicado pelo Qt e consultar WebGL/WebGPU
+    somente por ação explícita; apresentar renderer de software ou inconclusivo
+    sem declarar aceleração do compositor.
+  - [x] Permitir zerar as amostras de navegação sem limpar inicialização ou
+    histórico.
 - [x] Evitar a aba branca do diagnóstico interno; explicar a limitação sem
   alegar que a GPU esteja desligada.
   - [ ] Validar a leitura do estado gráfico no Windows; aceitar resultado

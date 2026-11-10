@@ -2,3 +2,5 @@
 - [Registro de mudanças](registro-de-mudancas.md) — ao concluir alterações, atualizar `nucleo/_ULTIMOS_FIX.txt` com o que mudou e o estado da validação.
 - [Faixa de favoritos](faixa-de-favoritos.md) — cada favorito tem botão de abrir e um único menu de três pontos para editar/remover.
 - [Validação no Windows](validacao-windows.md) — verifique sincronização da cópia local antes de atribuir ao código atual um erro registrado no Windows.
+- [Layout da janela e das abas](browser-window-layout.md) — escudo, favorito e economia de dados ficam no topo com os controles; os outros módulos da barra direita devem ficar organizados no pacote próprio.
+- [Explorer e ferramentas laterais](explorer-browser-roadmap.md) — requisitos do usuário para estrutura de arquivos, prévias e módulos dos botões da barra direita.

@@ -11,7 +11,11 @@ from PySide6.QtWidgets import (
 )
 
 from _CONFIGURA_ import TEXTO_UI
-from _SERVICOS_.performance_diagnostics import performance_snapshot
+from _SERVICOS_.graphics_diagnostics import graphics_diagnostic_snapshot
+from _SERVICOS_.performance_diagnostics import (
+    performance_snapshot,
+    reset_navigation_samples,
+)
 
 
 class PerformancePanel(QWidget):
@@ -51,6 +55,60 @@ class PerformancePanel(QWidget):
             TEXTO_UI["performance_processes_label"],
             self.process_count_value,
         )
+        network_divider = QFrame(resource_frame)
+        network_divider.setFrameShape(QFrame.Shape.HLine)
+        network_divider.setFrameShadow(QFrame.Shadow.Sunken)
+        resource_layout.addRow(network_divider)
+
+        self.network_title = QLabel(
+            TEXTO_UI["performance_network_title"],
+            resource_frame,
+        )
+        self.network_title.setObjectName("performanceNetworkTitle")
+        self.network_title.setToolTip(TEXTO_UI["performance_network_note"])
+        resource_layout.addRow(self.network_title)
+
+        self.network_ip_value = QLabel(
+            TEXTO_UI["performance_network_waiting"],
+            resource_frame,
+        )
+        self.network_ip_value.setWordWrap(True)
+        self.network_download_speed_value = QLabel(
+            TEXTO_UI["performance_network_waiting"],
+            resource_frame,
+        )
+        self.network_upload_speed_value = QLabel(
+            TEXTO_UI["performance_network_waiting"],
+            resource_frame,
+        )
+        self.network_download_total_value = QLabel(
+            TEXTO_UI["performance_network_waiting"],
+            resource_frame,
+        )
+        self.network_upload_total_value = QLabel(
+            TEXTO_UI["performance_network_waiting"],
+            resource_frame,
+        )
+        resource_layout.addRow(
+            TEXTO_UI["performance_network_ip_label"],
+            self.network_ip_value,
+        )
+        resource_layout.addRow(
+            TEXTO_UI["performance_network_download_label"],
+            self.network_download_speed_value,
+        )
+        resource_layout.addRow(
+            TEXTO_UI["performance_network_upload_label"],
+            self.network_upload_speed_value,
+        )
+        resource_layout.addRow(
+            TEXTO_UI["performance_network_download_total"],
+            self.network_download_total_value,
+        )
+        resource_layout.addRow(
+            TEXTO_UI["performance_network_upload_total"],
+            self.network_upload_total_value,
+        )
         layout.addWidget(resource_frame)
 
         self.startup_label = QLabel("", self)
@@ -69,6 +127,25 @@ class PerformancePanel(QWidget):
         )
         self.navigation_label.setWordWrap(True)
         layout.addWidget(self.navigation_label)
+
+        self.navigation_reset_button = QPushButton(
+            TEXTO_UI["performance_reset_navigation"],
+            self,
+        )
+        self.navigation_reset_button.setToolTip(
+            TEXTO_UI["performance_reset_navigation_tooltip"]
+        )
+        self.navigation_reset_button.clicked.connect(
+            self._reset_navigation_samples
+        )
+        layout.addWidget(self.navigation_reset_button)
+
+        self.gpu_state_value = QLabel(
+            TEXTO_UI["performance_gpu_state_inconclusive"],
+            self,
+        )
+        self.gpu_state_value.setWordWrap(True)
+        layout.addWidget(self.gpu_state_value)
 
         self.gpu_button = QPushButton(
             TEXTO_UI["performance_gpu_open"],
@@ -93,6 +170,10 @@ class PerformancePanel(QWidget):
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self.refresh_metrics)
 
+    def _reset_navigation_samples(self):
+        reset_navigation_samples()
+        self._refresh_session_metrics()
+
     def start_monitoring(self):
         self.refresh_metrics()
         if not self._timer.isActive():
@@ -103,6 +184,7 @@ class PerformancePanel(QWidget):
 
     def refresh_metrics(self):
         usage = self._monitor.snapshot
+        self._refresh_network_metrics(usage)
         error = str(usage.get("error") or "")
         if error:
             message = (
@@ -140,8 +222,91 @@ class PerformancePanel(QWidget):
 
         self._refresh_session_metrics()
 
+    def _refresh_network_metrics(self, usage: dict) -> None:
+        error = str(usage.get("network_error") or usage.get("error") or "")
+        if error:
+            unavailable = TEXTO_UI["performance_network_unavailable"]
+            self.network_ip_value.setText(unavailable)
+            self.network_download_speed_value.setText(unavailable)
+            self.network_upload_speed_value.setText(unavailable)
+            self.network_download_total_value.setText(unavailable)
+            self.network_upload_total_value.setText(unavailable)
+            return
+
+        if not usage.get("network_sampled"):
+            waiting = TEXTO_UI["performance_network_waiting"]
+            self.network_ip_value.setText(waiting)
+            self.network_download_speed_value.setText(waiting)
+            self.network_upload_speed_value.setText(waiting)
+            self.network_download_total_value.setText(waiting)
+            self.network_upload_total_value.setText(waiting)
+            return
+
+        addresses = tuple(
+            str(address)
+            for address in usage.get("network_ip_addresses", ())
+            if address
+        )
+        self.network_ip_value.setText(
+            ", ".join(addresses)
+            if addresses
+            else TEXTO_UI["performance_network_ip_not_found"]
+        )
+        self.network_ip_value.setToolTip(
+            TEXTO_UI["performance_network_note"]
+        )
+
+        for key, widget in (
+            (
+                "network_download_bytes_per_second",
+                self.network_download_speed_value,
+            ),
+            (
+                "network_upload_bytes_per_second",
+                self.network_upload_speed_value,
+            ),
+        ):
+            rate = usage.get(key)
+            widget.setText(
+                TEXTO_UI["performance_network_waiting"]
+                if rate is None
+                else f"{self._format_bytes(rate)}/s"
+            )
+
+        self.network_download_total_value.setText(
+            self._format_bytes(usage.get("network_downloaded_bytes", 0))
+        )
+        self.network_upload_total_value.setText(
+            self._format_bytes(usage.get("network_uploaded_bytes", 0))
+        )
+
+    @staticmethod
+    def _format_bytes(value: int | float) -> str:
+        size = max(0.0, float(value))
+        units = ("B", "KiB", "MiB", "GiB", "TiB")
+        for unit in units:
+            if size < 1024 or unit == units[-1]:
+                return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+            size /= 1024
+        return "0 B"
+
     def _refresh_session_metrics(self):
         snapshot = performance_snapshot()
+        graphics = graphics_diagnostic_snapshot()
+        graphics_state_key = {
+            "renderer_reported": "performance_gpu_state_renderer_reported",
+            "software_renderer": "performance_gpu_state_software_renderer",
+            "webgl_available": "performance_gpu_state_webgl_available",
+            "qt_backend_unsupported": (
+                "performance_gpu_state_qt_backend_unsupported"
+            ),
+            "qt_device_reported": "performance_gpu_state_qt_device_reported",
+            "inconclusive": "performance_gpu_state_inconclusive",
+        }.get(graphics["state"], "performance_gpu_state_inconclusive")
+        self.gpu_state_value.setText(
+            f"{TEXTO_UI['performance_gpu_state_label']}: "
+            f"{TEXTO_UI[graphics_state_key]}"
+        )
         startup_ms = snapshot["startup_ms"].get("janela_exibida")
         self.startup_label.setText(
             TEXTO_UI["performance_startup_value"].format(

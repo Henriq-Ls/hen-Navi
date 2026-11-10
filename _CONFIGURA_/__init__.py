@@ -80,7 +80,54 @@ LARGURA_PADRAO = 1280
 ALTURA_PADRAO  = 800
 LARGURA_MIN    = 1024
 ALTURA_MIN     = 600
-VERSAO_ESTADO_JANELA = 2
+VERSAO_ESTADO_JANELA = 6
+EXPLORER_MAX_ITEMS = 500
+EXPLORER_MAX_SECONDS = 3.0
+EXPLORER_MAX_DEPTH = 12
+EXPLORER_MAX_LINES = 1200
+EXPLORER_MAX_CHARS = 40000
+EXPLORER_LARGURA_PADRAO = 1280
+EXPLORER_ALTURA_PADRAO = 720
+EXPLORER_LARGURA_MIN = 980
+EXPLORER_ALTURA_MIN = 500
+EXPLORER_LARGURA_LOCAIS = 190
+EXPLORER_PREVIEW_TAMANHO = 240
+EXPLORER_PREVIEW_ALTURA = 170
+EXPLORER_PREVIEW_MAX_BYTES = 30 * 1024 * 1024
+EXPLORER_PREVIEW_MAX_PIXELS = 40_000_000
+EXPLORER_PREVIEW_MAX_ITEMS = 50_000
+EXPLORER_PREVIEW_MAX_SECONDS = 8.0
+EXPLORER_PREVIEW_DEBOUNCE_MS = 180
+EXPLORER_ESPACAMENTO = 8
+EXPLORER_MARGEM = 12
+EXPLORER_TAMANHO_ICONE = 16
+EXPLORER_LARGURA_COLUNA_TAMANHO = 100
+EXPLORER_LARGURA_COLUNA_TIPO = 150
+EXPLORER_LARGURA_COLUNA_DATA = 175
+EXPLORER_CABECALHOS = ("Nome", "Tamanho", "Tipo", "Modificado em")
+EXPLORER_FILTROS = (
+    ("Todos os arquivos (*)", ("*",)),
+    (
+        "Imagens (*.png *.jpg *.jpeg *.gif *.bmp *.webp *.tif *.tiff)",
+        ("*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp", "*.tif", "*.tiff"),
+    ),
+    (
+        "Vídeos (*.mp4 *.mov *.mkv *.webm *.avi *.m4v)",
+        ("*.mp4", "*.mov", "*.mkv", "*.webm", "*.avi", "*.m4v"),
+    ),
+    (
+        "Áudio (*.mp3 *.wav *.flac *.aac *.ogg *.m4a)",
+        ("*.mp3", "*.wav", "*.flac", "*.aac", "*.ogg", "*.m4a"),
+    ),
+)
+EXPLORER_DEFAULT_IGNORED_NAMES = (
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "node_modules",
+    ".idea",
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ATALHOS
@@ -104,6 +151,8 @@ ATALHOS = (
     {"id": "bloqueador_site", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+B", "descricao": "Ativa ou desativa o bloqueio neste site."},
     {"id": "anotacoes", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+E", "descricao": "Mostra ou oculta as anotações do site."},
     {"id": "assistente_ia", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+Y", "descricao": "Abre o assistente para resumir ou perguntar sobre a página atual."},
+    {"id": "explorador", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+F", "descricao": "Abre o Explorador local de pastas."},
+    {"id": "tema_personalizado", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+M", "descricao": "Abre a personalização do tema."},
     {"id": "atalhos", "categoria": "Ferramentas", "atalho": "F1", "descricao": "Abre esta lista de atalhos."},
     {"id": "appdata", "categoria": "Ferramentas", "atalho": "Ctrl+Shift+D", "descricao": "Abre a pasta de dados do hen-Nave."},
 )
@@ -168,7 +217,7 @@ ZOOM_MAXIMO = 3.0
 ZOOM_INCREMENTO = 1.15
 LARGURA_ENDERECO_MINIMA = 280
 ALTURA_BARRA_ENDERECO = 36
-LARGURA_BARRA_CONTROLES_JANELA = 40
+LARGURA_BARRA_CONTROLES_JANELA = 34
 TAMANHO_BOTAO_CONTROLE_JANELA = 32
 TAMANHO_ICONE_CONTROLE_JANELA = 15
 LARGURA_DIALOGO_PADRAO = 760
@@ -574,29 +623,6 @@ TEXTO_UI = {
     "upload_files_title": "Selecionar arquivos para enviar",
     "upload_folder_title": "Selecionar uma pasta para enviar",
     "upload_all_files_filter": "Todos os arquivos (*)",
-    "upload_dialog_location_label": "Local:",
-    "upload_dialog_name_label": "Nome:",
-    "upload_dialog_type_label": "Tipo de arquivo:",
-    "upload_dialog_directories": "Pastas",
-    "upload_dialog_select_folder": "Selecionar pasta",
-    "upload_dialog_open": "Abrir",
-    "upload_dialog_save": "Salvar",
-    "upload_dialog_cancel": "Cancelar",
-    "upload_dialog_desktop": "Área de Trabalho",
-    "upload_dialog_downloads": "Downloads",
-    "upload_dialog_home": "Início",
-    "upload_dialog_back": "Voltar",
-    "upload_dialog_back_description": "Voltar para a pasta anterior",
-    "upload_dialog_forward": "Avançar",
-    "upload_dialog_forward_description": "Avançar para a próxima pasta",
-    "upload_dialog_parent": "Pasta acima",
-    "upload_dialog_parent_description": "Abrir a pasta acima",
-    "upload_dialog_new_folder": "Criar pasta",
-    "upload_dialog_new_folder_description": "Criar uma nova pasta",
-    "upload_dialog_list_view": "Lista",
-    "upload_dialog_list_view_description": "Mostrar em formato de lista",
-    "upload_dialog_detail_view": "Detalhes",
-    "upload_dialog_detail_view_description": "Mostrar detalhes dos itens",
     "home_title": "Início",
     "brand_initial": "h",
     "home_subtitle": "hen! Onde Quer Navegar Hoje?",
@@ -663,12 +689,10 @@ TEXTO_UI = {
     "private_short": "Anônima",
     "menu_tooltip": "Menu",
     "window_brand_tooltip": "Menu e configurações do hen-Nave",
-    "window_controls_toolbar": "Controles da janela",
     "window_close": "Fechar janela",
     "window_maximize": "Maximizar janela",
     "window_restore": "Restaurar janela",
     "window_minimize": "Minimizar janela",
-    "window_resize": "Redimensionar janela",
     "inspect_page": "Inspecionar DOM da página",
     "inspect_title": "Inspetor DOM da página",
     "inspect_notice": (
@@ -703,6 +727,7 @@ TEXTO_UI = {
     "inspect_update_error": "O elemento não está mais disponível na página.",
     "devtools_title": "DevTools do Chromium",
     "devtools_action": "Abrir DevTools do Chromium",
+    "security_performance_menu": "Segurança e desempenho",
     "site_security_action": "Segurança do site",
     "site_security_title": "Diagnóstico de segurança do site",
     "site_security_notice": (
@@ -944,14 +969,14 @@ TEXTO_UI = {
     "about_title": "Sobre o hen-Nave",
     "about_message": "hen-Nave {version}\n\nNavegador desktop em Python, PySide6 e QtWebEngine.",
     "media_diagnostic": "Testar suporte a vídeo",
-    "gpu_diagnostic": "Como consultar a GPU",
+    "gpu_diagnostic": "Diagnóstico gráfico",
     "media_diagnostic_title": "Diagnóstico de mídia",
     "performance_panel_title": "Desempenho",
     "performance_panel_description": (
-        "CPU em porcentagem do total lógico e memória RSS somada do hen-Nave "
-        "e Chromium. A soma pode contar páginas compartilhadas mais de uma vez. "
-        "A leitura compacta fica na barra inferior e atualiza a cada 3 segundos; "
-        "este painel mostra também os tempos da sessão."
+        "CPU e memória agregadas do hen-Nave + Chromium. A seção Rede mostra "
+        "IPs locais e tráfego agregado de todas as interfaces da máquina; os "
+        "dados não são enviados nem gravados. CPU/RAM atualiza a cada 3 segundos; "
+        "o painel também mostra os tempos da sessão."
     ),
     "performance_cpu_label": "CPU total (hen-Nave + Chromium)",
     "performance_memory_label": "Memória RSS somada",
@@ -960,6 +985,20 @@ TEXTO_UI = {
     "performance_metrics_unavailable": "Indisponível",
     "performance_dependency_missing": (
         "Instale as dependências do requirements.txt para medir CPU e memória."
+    ),
+    "performance_network_title": "Rede da máquina",
+    "performance_network_ip_label": "IP local",
+    "performance_network_ip_not_found": "Nenhum IP local detectado",
+    "performance_network_download_label": "Download atual",
+    "performance_network_upload_label": "Upload atual",
+    "performance_network_download_total": "Recebido nesta sessão",
+    "performance_network_upload_total": "Enviado nesta sessão",
+    "performance_network_waiting": "Aguardando próxima amostra…",
+    "performance_network_unavailable": "Indisponível",
+    "performance_network_note": (
+        "Velocidades e totais incluem todas as interfaces da máquina, "
+        "não apenas o navegador. O hen-Nave não consulta serviços externos "
+        "nem grava esses dados."
     ),
     "performance_partial": "parcial",
     "performance_startup_value": "Janela exibida: {value}",
@@ -975,11 +1014,33 @@ TEXTO_UI = {
         "{label}: {count} | média {average} ms | "
         "último {last} ms ({result})"
     ),
-    "performance_gpu_open": "Como consultar a GPU",
+    "performance_reset_navigation": "Zerar amostras de navegação",
+    "performance_reset_navigation_tooltip": (
+        "Limpa apenas as amostras locais desta sessão; não apaga histórico "
+        "nem a medição de inicialização."
+    ),
+    "performance_gpu_state_label": "Estado gráfico",
+    "performance_gpu_state_inconclusive": "Inconclusivo",
+    "performance_gpu_state_renderer_reported": (
+        "Renderer informado pelo WebGL; composição não confirmada"
+    ),
+    "performance_gpu_state_software_renderer": (
+        "WebGL informa renderer de software"
+    ),
+    "performance_gpu_state_webgl_available": (
+        "WebGL disponível; renderer não identificado"
+    ),
+    "performance_gpu_state_qt_backend_unsupported": (
+        "Qt informa backend gráfico não suportado"
+    ),
+    "performance_gpu_state_qt_device_reported": (
+        "Qt informou dispositivo gráfico; composição não confirmada"
+    ),
+    "performance_gpu_open": "Diagnosticar GPU",
     "performance_gpu_note": (
-        "O QtWebEngine escolhe a aceleração automaticamente. O estado da GPU "
-        "não foi confirmado; o botão explica o diagnóstico sem abrir uma aba "
-        "branca."
+        "O QtWebEngine escolhe a aceleração automaticamente. O botão consulta "
+        "WebGL/WebGPU na página ativa e mostra os dados gráficos do Qt. "
+        "Disponibilidade de API não confirma aceleração do compositor."
     ),
     "performance_status_format": "CPU {cpu} | RAM {memory}",
     "performance_status_waiting": "CPU — | RAM —",
@@ -988,15 +1049,22 @@ TEXTO_UI = {
         "hen-Nave e processos Chromium; atualização a cada 3 segundos. "
         "RAM é a soma de RSS e pode contar páginas compartilhadas mais de uma vez."
     ),
-    "gpu_diagnostic_unavailable": (
-        "O log da execução reportada registrou falha ao carregar chrome://gpu, "
-        "o que abriu uma aba branca. O hen-Nave não vai abrir essa página "
-        "novamente. Isso não "
-        "prova que a aceleração gráfica esteja desligada: o QtWebEngine decide "
-        "automaticamente e o aviso de WebGPU, sozinho, não confirma falha geral.\n\n"
-        "No Windows, o Gerenciador de Tarefas pode mostrar atividade da GPU "
-        "enquanto você rola uma página ou reproduz vídeo, mas isso é apenas um "
-        "indício, não uma confirmação completa do compositor."
+    "gpu_report_state": "Estado: {state}",
+    "gpu_report_webgl": "WebGL: {value}",
+    "gpu_report_webgpu": "API WebGPU: {value}",
+    "gpu_report_vendor": "Fornecedor WebGL: {value}",
+    "gpu_report_renderer": "Renderer WebGL: {value}",
+    "gpu_report_qt_title": "Contexto gráfico QtWebEngine:",
+    "gpu_report_qt_empty": (
+        "Nenhuma informação de contexto gráfico foi capturada nesta execução."
+    ),
+    "gpu_report_value_available": "Disponível",
+    "gpu_report_value_unavailable": "Indisponível",
+    "gpu_report_value_inconclusive": "Inconclusivo ou não consultado",
+    "gpu_report_limits": (
+        "A disponibilidade de WebGL/WebGPU não comprova aceleração do "
+        "compositor. O navegador pode ocultar o renderer por privacidade. "
+        "A consulta é local, não lê URL ou conteúdo e não altera flags."
     ),
     "performance_data_saver_note": (
         "Economia de dados na barra superior reduz algumas imagens, mídias e "
@@ -1040,18 +1108,130 @@ TEXTO_UI = {
     "search_engine_menu": "Buscador padrão",
     "search_engine_invalid": "Mecanismo de pesquisa inválido: {engine}",
     "tools_menu": "Ferramentas",
+    "explorer_action": "Explorador",
+    "explorer_browse_dialog_title": "Escolher pasta raiz",
+    "explorer_path_label": "Pasta raiz",
+    "explorer_path_placeholder": "Cole o caminho de uma pasta",
+    "explorer_open_root": "Abrir pasta",
+    "explorer_browse": "Escolher...",
+    "explorer_ignore_section": "Nomes ignorados ({count})",
+    "explorer_add_ignore_placeholder": "Nome exato a ignorar",
+    "explorer_add_ignore": "Ignorar nome",
+    "explorer_show_ignored": "Mostrar ignorados",
+    "explorer_remove_ignore": "Remover nome ignorado",
+    "explorer_ignored_warning": "Ignorar apenas oculta nomes; não protege os arquivos.",
+    "explorer_choose_root": "Escolha uma pasta para começar.",
+    "explorer_loading": "Lendo pasta...",
+    "explorer_empty_column": "Esta pasta está vazia.",
+    "explorer_counts_unavailable": "Contagem indisponível",
+    "explorer_open_folder": "Abrir pasta",
+    "explorer_file": "Arquivo",
+    "explorer_link": "Link (não seguido)",
+    "explorer_blocked": "Sem permissão",
+    "explorer_permission_error": "Sem permissão para listar esta pasta.",
+    "explorer_ready": "Pasta carregada.",
+    "explorer_folder_count": (
+        "{folders} {folder_label} · {files} {file_label}"
+    ),
+    "explorer_many_items": "Muitos itens; a listagem foi limitada.",
+    "explorer_scan_timeout": "Tempo máximo atingido; listagem parcial.",
+    "explorer_path_outside_root": "Esse caminho está fora da pasta raiz escolhida.",
+    "explorer_invalid_root": "Escolha uma pasta local válida.",
+    "explorer_root_fixed": "Esta pasta está fixa neste modo de inspeção.",
+    "explorer_invalid_ignore": "Digite apenas um nome, sem barras ou curingas.",
+    "explorer_copy_tree": "Copiar documento",
+    "explorer_save_tree": "Salvar .txt",
+    "explorer_generating_tree": "Gerando documento...",
+    "explorer_preview_placeholder": "O documento gerado aparecerá aqui.",
+    "explorer_preview_title": "Documento da estrutura",
+    "explorer_preview_chars": "{count} caracteres",
+    "explorer_item_preview_title": "Prévia do item",
+    "explorer_item_preview_placeholder": (
+        "Clique uma vez em um arquivo para ver uma prévia."
+    ),
+    "explorer_item_preview_directory": (
+        "Pasta selecionada: {name}\n{path}\n{details}\n"
+        "Dê dois cliques para expandir."
+    ),
+    "explorer_item_preview_unavailable": (
+        "Este item não pode ser pré-visualizado com segurança."
+    ),
+    "explorer_omitted": "... {count} itens omitidos",
+    "explorer_omitted_at_least_one": "... pelo menos 1 item omitido",
+    "explorer_omitted_at_least": "... pelo menos {count} itens omitidos",
+    "explorer_tree_folder_count": " ({folders} pastas, {files} arquivos)",
+    "explorer_ignore_settings_error": "Não foi possível salvar os nomes ignorados.",
+    "explorer_settings_read_error": "Não foi possível ler os nomes ignorados; usando padrões.",
+    "explorer_settings_write_error": "Não foi possível salvar os nomes ignorados.",
+    "explorer_save_dialog_title": "Salvar estrutura do projeto",
+    "explorer_save_error": "Não foi possível salvar o arquivo .txt.",
+    "explorer_tree_copied": "Documento copiado para a área de transferência.",
+    "explorer_tree_partial": "Documento parcial; os limites configurados foram atingidos.",
+    "explorer_tree_ready": "Documento gerado.",
+    "explorer_tree_saved": "Documento salvo.",
+    "explorer_tree_name": "Projeto",
+    "explorer_tree_contents": "Conteúdo direto",
+    "explorer_folder_one": "pasta",
+    "explorer_folder_many": "pastas",
+    "explorer_file_one": "arquivo",
+    "explorer_file_many": "arquivos",
+    "file_preview_open_action": "Abrir prévia em nova aba",
+    "file_preview_error": "Não foi possível abrir a prévia: {error}",
+    "file_preview_unsupported": (
+        "Não há prévia segura disponível para {name}. O arquivo não foi executado."
+    ),
+    "file_preview_text_truncated": (
+        "Prévia limitada aos primeiros 2 MB para proteger o desempenho."
+    ),
+    "file_preview_compact_text_truncated": (
+        "Prévia curta. Dê dois cliques para abrir o arquivo completo."
+    ),
+    "file_preview_compact_pdf": (
+        "PDF selecionado. Dê dois cliques para abrir a prévia completa em uma aba."
+    ),
+    "file_preview_compact_audio": (
+        "Áudio selecionado. Dê dois cliques para abrir e reproduzir em uma aba."
+    ),
+    "file_preview_compact_video": (
+        "Vídeo selecionado. Dê dois cliques para abrir a prévia em uma aba."
+    ),
+    "file_preview_image_too_large": (
+        "Esta imagem excede o limite seguro para pré-visualização."
+    ),
+    "file_preview_image_unreadable": "Não foi possível decodificar a imagem.",
+    "file_preview_pdf_too_large": (
+        "Este PDF excede o limite seguro para pré-visualização."
+    ),
+    "file_preview_pdf_unavailable": (
+        "A visualização de PDF não está disponível nesta instalação."
+    ),
+    "file_preview_pdf_unreadable": "Não foi possível abrir este PDF.",
+    "file_preview_media_unavailable": (
+        "A reprodução de áudio e vídeo não está disponível nesta instalação."
+    ),
+    "file_preview_video_unavailable": (
+        "A reprodução de vídeo não está disponível nesta instalação."
+    ),
+    "file_preview_play": "Reproduzir",
+    "file_preview_pause": "Pausar",
+    "file_preview_media_ready": (
+        "Clique em Reproduzir. O suporte a formatos depende dos codecs do sistema."
+    ),
+    "file_preview_media_error": "Falha na reprodução: {error}",
+    "explorer_column": "Conteúdo da pasta",
     "theme_menu": "Tema",
     "theme_custom": "Personalizado",
     "theme_customize": "Personalizar cores e fontes…",
     "theme_custom_title": "Personalizar tema",
-    "theme_custom_description": "Escolha as cores da interface e as fontes do navegador e da página inicial.",
+    "theme_custom_description": "Personalize cores, fontes e tamanhos da interface.",
     "theme_custom_colors": "Cores da interface",
     "theme_custom_fonts": "Fontes",
     "theme_custom_font_ui": "Fonte da interface",
     "theme_custom_font_content": "Fonte de campos e página inicial",
     "theme_custom_preview": "Prévia",
     "theme_custom_preview_button": "Botão de destaque",
-    "theme_custom_save": "Salvar e aplicar",
+    "theme_custom_save": "Salvar e continuar",
+    "theme_custom_saved": "Alterações salvas e aplicadas.",
     "theme_color_background": "Plano de fundo",
     "theme_color_surface": "Barras e menus",
     "theme_color_surface_alt": "Painéis e realce",
@@ -1069,9 +1249,21 @@ TEXTO_UI = {
     "theme_color_danger": "Erro e fechar",
     "theme_color_private": "Modo anônimo",
     "theme_color_private_background": "Fundo do modo anônimo",
+    "theme_custom_metrics": "Tamanhos da interface",
+    "theme_custom_metrics_hint": (
+        "Abas e faixa inferior acompanham a fonte; a largura da barra direita "
+        "acompanha os ícones."
+    ),
+    "theme_custom_font_size": "Tamanho da fonte (px)",
+    "theme_custom_tab_height": "Altura das abas (px)",
+    "theme_custom_sidebar_icon_size": "Ícones da barra direita (px)",
+    "theme_custom_footer_height": "Altura de favoritos e avisos (px)",
     "open_app_data": "Abrir pasta de dados",
     "app_data_opened": "Pasta de dados do hen-Nave aberta.",
     "app_data_open_error": "Não foi possível abrir a pasta de dados do hen-Nave.",
+    "app_data_private_unavailable": (
+        "A pasta de dados persistentes não fica disponível em janela anônima."
+    ),
     "clear_cache": "Limpar cache",
     "cache_cleared": "Limpeza do cache iniciada. Cookies e histórico foram mantidos.",
     "cache_clear_error": "Não foi possível limpar o cache de navegação.",
@@ -1228,9 +1420,98 @@ TEXTO_UI = {
     "video_download_status_playlist": "Informe o link de um vídeo individual, não de uma playlist.",
 }
 
+EXPLORER_TEXTOS = {
+    "title_open_file": "Abrir arquivo",
+    "title_open_files": "Selecionar arquivos",
+    "title_select_folder": "Selecionar pasta",
+    "title_save_file": "Salvar arquivo",
+    "title_manage": "Explorador de arquivos",
+    "location": "Local:",
+    "path_placeholder": "Digite ou cole um caminho e pressione Enter",
+    "search_placeholder": "Pesquisar nesta pasta",
+    "organize": "Organizar",
+    "sort_name": "Nome",
+    "sort_size": "Tamanho",
+    "sort_type": "Tipo",
+    "sort_modified": "Data de modificação",
+    "sort_descending": "Ordem decrescente",
+    "places": "Locais",
+    "place_home": "Início",
+    "place_desktop": "Área de Trabalho",
+    "place_documents": "Documentos",
+    "place_downloads": "Downloads",
+    "place_pictures": "Imagens",
+    "place_music": "Músicas",
+    "place_videos": "Vídeos",
+    "place_computer": "Este computador",
+    "filename": "Nome:",
+    "file_type": "Tipo de arquivo:",
+    "show_hidden": "Mostrar itens ocultos",
+    "open": "Abrir",
+    "select_folder": "Selecionar pasta",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "new_folder": "Nova pasta",
+    "new_folder_title": "Criar pasta",
+    "new_folder_prompt": "Nome da nova pasta:",
+    "rename": "Renomear",
+    "rename_title": "Renomear item",
+    "rename_prompt": "Novo nome:",
+    "copy_path": "Copiar caminho",
+    "move_to_trash": "Mover para a Lixeira",
+    "trash_confirm_title": "Mover para a Lixeira?",
+    "trash_confirm_message": "O item selecionado será movido para a Lixeira do sistema.",
+    "error_title": "Não foi possível concluir",
+    "invalid_location": "Esse local não existe ou não pode ser acessado.",
+    "invalid_name": "Informe um nome válido, sem separadores de pasta.",
+    "empty_filename": "Informe o nome do arquivo.",
+    "file_required": "Selecione um arquivo.",
+    "save_folder_error": "O nome informado aponta para uma pasta, não para um arquivo.",
+    "overwrite_title": "Substituir arquivo?",
+    "overwrite_message": "Esse arquivo já existe. Deseja substituí-lo?",
+    "new_folder_error": "Não foi possível criar a pasta.",
+    "rename_error": "Não foi possível renomear o item.",
+    "trash_error": "O sistema não conseguiu mover o item para a Lixeira.",
+    "items_count": "{count} itens",
+    "items_selected": "{count} selecionados",
+    "ready": "Pronto",
+    "tooltip_back": "Voltar",
+    "tooltip_forward": "Avançar",
+    "tooltip_up": "Subir uma pasta",
+    "tooltip_home": "Ir para Início",
+    "tooltip_refresh": "Atualizar",
+    "tooltip_new_folder": "Criar uma pasta neste local",
+    "preview_title": "Prévia e propriedades",
+    "preview_empty": "Passe o mouse ou selecione um item para ver detalhes.",
+    "preview_image_placeholder": "Prévia do item",
+    "preview_loading": "Carregando prévia e propriedades...",
+    "preview_kind_folder": "Pasta",
+    "preview_kind_image": "Imagem",
+    "preview_kind_video": "Vídeo",
+    "preview_kind_file": "Arquivo",
+    "preview_kind_unknown": "Item",
+    "preview_folder_details": (
+        "{name}\nPasta\nTamanho total: {size}\nArquivos: {files}\n"
+        "Subpastas: {folders}\nModificado em: {modified}\n{path}"
+    ),
+    "preview_file_details": (
+        "{name}\n{kind} • {file_type}\nTamanho: {size}\n"
+        "Modificado em: {modified}\n{path}"
+    ),
+    "preview_selected_count": "{count} itens selecionados",
+    "preview_partial": "Leitura parcial; alguns itens não foram incluídos.",
+    "preview_unavailable": "Não há prévia disponível para este tipo de item.",
+    "preview_image_too_large": "Imagem muito grande para gerar uma prévia segura.",
+    "preview_image_unreadable": "Não foi possível ler esta imagem.",
+    "preview_video_unavailable": "Não foi possível obter uma imagem deste vídeo.",
+    "preview_link": "Prévia desativada para links simbólicos.",
+}
+
 from .temas import (
     CHAVES_CORES_PERSONALIZADAS,
     CHAVES_FONTES_PERSONALIZADAS,
+    CHAVES_METRICAS_PERSONALIZADAS,
     CHAVES_TEMA,
     CHAVE_TEMA_PERSONALIZADO,
     TEMAS,

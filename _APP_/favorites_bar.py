@@ -36,9 +36,18 @@ class FavoritesStatusBar(QScrollArea):
     MAX_VISIBLE_FAVORITES = 10
     MAX_LABEL_CHARS = 18
 
-    def __init__(self, storage, parent=None):
+    def __init__(
+        self,
+        storage,
+        parent=None,
+        *,
+        font_size_px: int = 13,
+        bar_height_px: int = 28,
+    ):
         super().__init__(parent)
         self.storage = storage
+        self.font_size_px = font_size_px
+        self.bar_height_px = bar_height_px
         self.setObjectName("favoritesStatusBar")
         self.setAccessibleName(TEXTO_UI["favorites"])
         self.setToolTip(TEXTO_UI["favorites_bar_scroll_hint"])
@@ -57,8 +66,7 @@ class FavoritesStatusBar(QScrollArea):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        self.setMinimumHeight(24)
-        self.setMaximumHeight(26)
+        self.setFixedHeight(self.bar_height_px)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         self._content = QWidget(self)
@@ -70,6 +78,47 @@ class FavoritesStatusBar(QScrollArea):
         self._favorite_items_by_url: dict[str, QWidget] = {}
         self._all_items_button = self._create_all_items_button()
         self.refresh()
+
+    def apply_metrics(self, font_size_px: int, bar_height_px: int) -> None:
+        """Ajusta a altura da faixa e os controles à fonte do tema."""
+        self.font_size_px = max(10, int(font_size_px))
+        self.bar_height_px = max(26, int(bar_height_px))
+        button_height = max(20, self.bar_height_px - 2)
+        icon_size = min(22, max(14, self.font_size_px + 2))
+        self.setFixedHeight(self.bar_height_px)
+        self._all_items_button.setIconSize(QSize(icon_size, icon_size))
+        self._all_items_button.setFixedSize(
+            QSize(max(24, self.font_size_px + 10), button_height)
+        )
+        for item in self._favorite_items_by_url.values():
+            item.setFixedHeight(button_height)
+            open_button = item.findChild(
+                QToolButton,
+                "favoriteStatusOpenButton",
+            )
+            if open_button is not None:
+                open_button.setIconSize(QSize(icon_size, icon_size))
+                open_button.setFixedHeight(button_height)
+            options_button = item.findChild(
+                QToolButton,
+                "favoriteStatusOptionsButton",
+            )
+            if options_button is not None:
+                options_button.setFixedSize(
+                    QSize(max(22, self.font_size_px + 9), button_height)
+                )
+        for more_button in self._content.findChildren(
+            QToolButton,
+            "favoritesStatusMoreButton",
+        ):
+            more_button.setMinimumWidth(self.font_size_px + 16)
+            more_button.setFixedHeight(button_height)
+        self._content_layout.activate()
+        content_size = self._content_layout.sizeHint()
+        self._content.setFixedSize(
+            max(1, content_size.width()),
+            max(button_height, content_size.height()),
+        )
 
     def _create_all_items_button(self) -> QToolButton:
         button = QToolButton(self._content)
@@ -159,6 +208,7 @@ class FavoritesStatusBar(QScrollArea):
             max(1, content_size.width()),
             max(24, content_size.height()),
         )
+        self.apply_metrics(self.font_size_px, self.bar_height_px)
         self.horizontalScrollBar().setValue(0)
 
     def _make_favorite_item(self, entry: dict) -> QWidget:

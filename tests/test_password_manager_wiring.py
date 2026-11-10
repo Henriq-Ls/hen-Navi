@@ -12,6 +12,9 @@ class PasswordManagerWiringTests(unittest.TestCase):
         cls.browser_source = (PROJECT_ROOT / "browser.py").read_text(
             encoding="utf-8"
         )
+        cls.page_source = (
+            PROJECT_ROOT / "_BROWSER_" / "page.py"
+        ).read_text(encoding="utf-8")
         cls.password_source = (
             PROJECT_ROOT / "_APP_" / "password_manager.py"
         ).read_text(encoding="utf-8")
@@ -36,9 +39,15 @@ class PasswordManagerWiringTests(unittest.TestCase):
             for node in browser_tree.body
             if isinstance(node, ast.ClassDef)
         }
+        page_tree = ast.parse(cls.page_source)
+        cls.page_class = next(
+            node
+            for node in page_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BrowserPage"
+        )
         cls.page_methods = {
             node.name: node
-            for node in cls.browser_classes["BrowserPage"].body
+            for node in cls.page_class.body
             if isinstance(node, ast.FunctionDef)
         }
         cls.window_methods = {
@@ -75,11 +84,11 @@ class PasswordManagerWiringTests(unittest.TestCase):
 
     def test_https_login_submits_offer_save_only_in_normal_windows(self):
         page_init = ast.get_source_segment(
-            self.browser_source,
+            self.page_source,
             self.page_methods["__init__"],
         )
         console_handler = ast.get_source_segment(
-            self.browser_source,
+            self.page_source,
             self.page_methods["javaScriptConsoleMessage"],
         )
         self.assertIn("if not browser_window.private", page_init)

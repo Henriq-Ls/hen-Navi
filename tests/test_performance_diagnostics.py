@@ -1,13 +1,16 @@
 import unittest
 from pathlib import Path
+import socket
 
 from _SERVICOS_.performance_diagnostics import (
+    NetworkMetricsSampler,
     ProcessTreeSampler,
     elapsed_ms,
     page_load_kind,
     performance_snapshot,
     record_page_load,
     record_startup_stage,
+    reset_navigation_samples,
     reset_performance_metrics,
 )
 
@@ -49,6 +52,11 @@ class FakeProcess:
         return FakeMemoryInfo(self.rss)
 
 
+class ChildrenOSErrorProcess(FakeProcess):
+    def children(self, recursive=False):
+        raise OSError(1455, "insufficient paging file")
+
+
 class FakePsutil:
     class Error(Exception):
         pass
@@ -61,6 +69,43 @@ class FakePsutil:
 
     def cpu_count(self):
         return 4
+
+
+class FakeNetworkCounters:
+    def __init__(self, bytes_recv, bytes_sent):
+        self.bytes_recv = bytes_recv
+        self.bytes_sent = bytes_sent
+
+
+class FakeNetworkAddress:
+    def __init__(self, family, address):
+        self.family = family
+        self.address = address
+
+
+class FakeNetworkPsutil:
+    class Error(Exception):
+        pass
+
+    def __init__(self):
+        self.bytes_recv = 1_000
+        self.bytes_sent = 2_000
+        self.interfaces = {
+            "loopback": [
+                FakeNetworkAddress(socket.AF_INET, "127.0.0.1"),
+                FakeNetworkAddress(socket.AF_INET6, "::1"),
+            ],
+            "Wi-Fi": [
+                FakeNetworkAddress(socket.AF_INET, "192.168.1.42"),
+                FakeNetworkAddress(socket.AF_INET, "169.254.10.2"),
+            ],
+        }
+
+    def net_io_counters(self):
+        return FakeNetworkCounters(self.bytes_recv, self.bytes_sent)
+
+    def net_if_addrs(self):
+        return self.interfaces
 
 
 class PerformanceDiagnosticsTests(unittest.TestCase):
@@ -166,6 +211,17 @@ class PerformanceDiagnosticsTests(unittest.TestCase):
         self.assertNotIn("url", str(snapshot).lower())
         self.assertNotIn("title", str(snapshot).lower())
 
+    def test_reset_navigation_samples_preserves_startup_measurements(self):
+        logger = FakeLogger()
+        record_startup_stage(logger, "janela_exibida", 1.0, 1.5)
+        record_page_load(logger, 1.0, "https", True, 2.0)
+
+        reset_navigation_samples()
+        snapshot = performance_snapshot()
+
+        self.assertEqual(snapshot["startup_ms"], {"janela_exibida": 500})
+        self.assertEqual(snapshot["navigation"], {})
+
     def test_process_sampler_aggregates_app_and_chromium_children(self):
         child = FakeProcess(202, user=1.0, system=0.5, rss=20 * 1024 * 1024)
         root = FakeProcess(
@@ -195,6 +251,50 @@ class PerformanceDiagnosticsTests(unittest.TestCase):
         self.assertEqual(second["memory_bytes"], 100 * 1024 * 1024)
         self.assertEqual(second["process_count"], 2)
         self.assertFalse(second["partial"])
+
+    def test_process_sampler_returns_partial_root_sample_on_children_oserror(self):
+        root = ChildrenOSErrorProcess(
+            101,
+            user=1.0,
+            system=0.5,
+            rss=80 * 1024 * 1024,
+        )
+        sampler = ProcessTreeSampler(
+            root_pid=101,
+            psutil_module=FakePsutil(root),
+            clock=lambda: 10.0,
+        )
+
+        snapshot = sampler.sample()
+
+        self.assertEqual(snapshot["memory_bytes"], 80 * 1024 * 1024)
+        self.assertEqual(snapshot["process_count"], 1)
+        self.assertTrue(snapshot["partial"])
+
+    def test_network_sampler_reports_local_ips_rates_and_session_totals(self):
+        psutil = FakeNetworkPsutil()
+        times = iter([10.0, 13.0])
+        sampler = NetworkMetricsSampler(
+            psutil_module=psutil,
+            clock=lambda: next(times),
+        )
+
+        first = sampler.sample()
+        self.assertTrue(first["network_sampled"])
+        self.assertEqual(first["network_ip_addresses"], ("192.168.1.42",))
+        self.assertIsNone(first["network_download_bytes_per_second"])
+        self.assertIsNone(first["network_upload_bytes_per_second"])
+        self.assertEqual(first["network_downloaded_bytes"], 0)
+        self.assertEqual(first["network_uploaded_bytes"], 0)
+
+        psutil.bytes_recv += 3_000
+        psutil.bytes_sent += 600
+        second = sampler.sample()
+
+        self.assertEqual(second["network_download_bytes_per_second"], 1_000)
+        self.assertEqual(second["network_upload_bytes_per_second"], 200)
+        self.assertEqual(second["network_downloaded_bytes"], 3_000)
+        self.assertEqual(second["network_uploaded_bytes"], 600)
 
 
 if __name__ == "__main__":

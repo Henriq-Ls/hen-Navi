@@ -5,6 +5,8 @@ from PySide6.QtWidgets import QLabel
 
 from _CONFIGURA_ import TEXTO_UI
 from _SERVICOS_.performance_diagnostics import (
+    NetworkMetricsSampler,
+    NetworkMetricsUnavailable,
     ProcessMetricsUnavailable,
     ProcessTreeSampler,
 )
@@ -19,6 +21,7 @@ class PerformanceMonitor(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._sampler = None
+        self._network_sampler = None
         self._started = False
         self._snapshot = {
             "cpu_percent": None,
@@ -26,6 +29,13 @@ class PerformanceMonitor(QObject):
             "process_count": None,
             "partial": False,
             "error": "",
+            "network_sampled": False,
+            "network_ip_addresses": (),
+            "network_download_bytes_per_second": None,
+            "network_upload_bytes_per_second": None,
+            "network_downloaded_bytes": 0,
+            "network_uploaded_bytes": 0,
+            "network_error": "",
         }
         self._sample_timer = QTimer(self)
         self._sample_timer.setInterval(self.SAMPLE_INTERVAL_MS)
@@ -60,8 +70,33 @@ class PerformanceMonitor(QObject):
                 "process_count": None,
                 "partial": False,
                 "error": str(error),
+                "network_sampled": False,
+                "network_ip_addresses": (),
+                "network_download_bytes_per_second": None,
+                "network_upload_bytes_per_second": None,
+                "network_downloaded_bytes": 0,
+                "network_uploaded_bytes": 0,
+                "network_error": str(error),
             }
             self._sample_timer.stop()
+        if not self._snapshot["error"]:
+            try:
+                if self._network_sampler is None:
+                    self._network_sampler = NetworkMetricsSampler()
+                self._snapshot.update(self._network_sampler.sample())
+                self._snapshot["network_error"] = ""
+            except NetworkMetricsUnavailable as error:
+                self._snapshot.update(
+                    {
+                        "network_ip_addresses": (),
+                        "network_sampled": False,
+                        "network_download_bytes_per_second": None,
+                        "network_upload_bytes_per_second": None,
+                        "network_downloaded_bytes": 0,
+                        "network_uploaded_bytes": 0,
+                        "network_error": str(error),
+                    }
+                )
         self.updated.emit(self.snapshot)
 
 

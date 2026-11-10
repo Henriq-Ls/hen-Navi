@@ -4,8 +4,25 @@ from pathlib import Path
 
 
 class InternalUrlSchemeTests(unittest.TestCase):
+    def test_browser_package_declares_lazy_public_api(self):
+        import _BROWSER_
+
+        self.assertEqual(
+            set(_BROWSER_.__all__),
+            {
+                "BrowserController",
+                "BrowserPage",
+                "BrowserWindow",
+                "register_custom_url_scheme",
+            },
+        )
+
     def test_secure_host_scheme_declares_its_default_port(self):
-        source = Path(__file__).resolve().parents[1] / "browser.py"
+        source = (
+            Path(__file__).resolve().parents[1]
+            / "_BROWSER_"
+            / "url_schemes.py"
+        )
         tree = ast.parse(source.read_text(encoding="utf-8"))
         register = next(
             node

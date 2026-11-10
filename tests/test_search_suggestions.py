@@ -94,12 +94,15 @@ class SearchSuggestionTests(unittest.TestCase):
 
     def test_address_bar_uses_completer_and_home_bridge_is_detached_on_web_pages(self):
         browser = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        page = (
+            PROJECT_ROOT / "_BROWSER_" / "page.py"
+        ).read_text(encoding="utf-8")
         service = (
             PROJECT_ROOT / "_APP_" / "search_suggestions.py"
         ).read_text(encoding="utf-8")
         self.assertIn("self.address_bar.textEdited.connect", browser)
         self.assertIn("QCompleter.CompletionMode.PopupCompletion", browser)
-        self.assertIn("self.setWebChannel(None)", browser)
+        self.assertIn("self.setWebChannel(None)", page)
         self.assertIn("self.search_suggestion_service.request(", browser)
         self.assertIn("DEBOUNCE_MS = 250", service)
         self.assertIn(

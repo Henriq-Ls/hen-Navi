@@ -1,0 +1,157 @@
+NOVO LAYOUT — INTEGRAÇÃO NATIVA DA JANELA COM O WINDOWS
+=======================================================
+
+REVISÃO DE ESCOPO
+-----------------
+O usuário confirmou depois que o layout atual está bom. Portanto, não inverter
+as duas faixas nem redesenhar a janela. Nesta etapa, manter o layout como está,
+habilitar a integração nativa de encaixe/redimensionamento do Windows e colocar
+o botão “+” imediatamente ao lado da última aba aberta. Esta revisão substitui
+as orientações de reorganização visual em “REFERÊNCIA VISUAL” e “NOVA ORDEM DAS
+LINHAS” abaixo.
+
+OBJETIVO
+--------
+Manter a aparência atual do hen-Nave sem restaurar a barra de título original
+do Windows e fazer a janela personalizada cooperar com os recursos nativos de
+movimentação, encaixe, maximização e redimensionamento.
+
+REFERÊNCIA VISUAL
+-----------------
+A captura enviada pelo usuário é a referência visual. O conteúdo e os controles
+continuam com a aparência atual, mas a ordem das duas faixas horizontais será
+invertida:
+
+- Manter o ícone/menu do hen-Nave na linha superior, sem o nome do aplicativo.
+- Mover as abas para essa linha superior, imediatamente ao lado do menu.
+- Mover endereço, navegação e botões de tarefas para a segunda linha.
+- Controles da janela alinhados à direita.
+- Barra lateral direita, página e barras inferiores permanecem como estão.
+
+Não reintroduzir a barra de título padrão nem mover os controles de volta para
+ela. O objetivo é preservar esse visual e melhorar somente a integração com o
+Windows.
+
+NOVA ORDEM DAS LINHAS
+---------------------
+Linha de cima:
+[ícone/menu] [aba 1] [aba 2] ... [última aba] [+]
+
+- O ícone/menu permanece no início da linha, como está hoje.
+- As abas ficam ao lado do ícone e crescem para a direita.
+- O botão “+” fica imediatamente depois da última aba aberta, não preso ao
+  canto direito da janela. Ao clicar, cria uma nova aba nessa mesma faixa.
+- Os controles da janela continuam no lado direito, separados da faixa de abas.
+
+Linha de baixo:
+[voltar] [avançar] [recarregar] [início] [endereço/pesquisa] [botões de tarefas]
+
+- Mover para essa linha o campo de endereço e os controles de navegação/tarefas
+  que hoje ocupam a linha superior.
+- Preservar ícones, ações e estilo desses botões; a mudança desta etapa é de
+  posição, não de aparência.
+- A faixa de abas deve se comportar como em um navegador comum, mantendo as
+  abas abertas e a aba ativa ao reorganizar o layout.
+
+COMPORTAMENTO A IMPLEMENTAR
+---------------------------
+1. ÁREA DE ARRASTE
+   - Usar o espaço vazio da linha de cima, depois do botão “+” e antes dos
+     controles da janela, como área de arraste.
+   - Arrastar a janela restaurada deve mover a janela pelo mecanismo do sistema
+     operacional e permitir o encaixe nas bordas/zonas do Windows.
+   - Ao arrastar uma janela maximizada por essa área, ela deve restaurar e
+     acompanhar o cursor, sem ficar presa no estado maximizado.
+   - Não iniciar arraste ao usar o campo de endereço, uma aba, o botão “+”, o
+     menu do app ou qualquer botão de tarefa.
+   - Evitar conflito com o botão do ícone do hen-Nave: atualmente ele também abre
+     o menu do aplicativo quando clicado.
+
+2. DUPLO CLIQUE
+   - Duplo clique no espaço vazio da linha de cima alterna entre maximizada e
+     restaurada.
+   - Um duplo clique em botões, abas, endereço ou conteúdo não pode maximizar a
+     janela.
+
+3. SNAP LAYOUTS DO WINDOWS 11
+   - Manter o botão visual de maximizar/restaurar na posição atual.
+   - Permitir que o Windows reconheça a região desse botão como o botão nativo
+     de maximizar/restaurar, para que o menu Snap Layouts apareça ao passar o
+     mouse sobre ele.
+   - Se necessário, implementar o hit-test nativo do Windows (`WM_NCHITTEST`)
+     e retornar `HTMAXBUTTON` somente sobre o botão correto.
+   - Preservar também o encaixe por teclado do Windows, como Win+Z e Win+setas.
+
+4. REDIMENSIONAMENTO E CONTROLES
+   - Manter os botões atuais de minimizar, maximizar/restaurar e fechar.
+   - Manter o indicador/alça de redimensionamento existente e verificar o
+     redimensionamento pelas bordas e cantos da janela sem moldura.
+   - Não interceptar cliques ou gestos que pertencem aos controles da interface.
+
+COMPATIBILIDADE E LIMITES
+-------------------------
+- Usar as APIs do Qt para iniciar movimentação/redimensionamento do sistema
+  (`QWindow.startSystemMove()` e `QWindow.startSystemResize()`) quando aplicável.
+- A integração específica de Snap Layouts deve ser limitada ao Windows; manter
+  comportamento alternativo funcional em macOS/Linux.
+- Não desativar o modo sem moldura, não alterar o perfil do navegador, segurança,
+  desempenho ou conteúdo das páginas nesta etapa.
+- Se um recurso nativo não puder ser confirmado, informar isso em vez de
+  simular que está funcionando.
+
+CRITÉRIOS DE ACEITAÇÃO
+----------------------
+- O visual da captura permanece reconhecível e a barra de título original não
+  reaparece.
+- A linha superior mostra o ícone/menu e as abas; endereço, navegação e tarefas
+  ficam na linha logo abaixo.
+- O botão “+” fica colado à última aba e cria outra aba ali, sem ser deslocado
+  para o canto direito.
+- É possível arrastar a janela restaurada para mover e encaixar nas zonas do
+  Windows.
+- Arrastar uma janela maximizada pela área definida restaura e move a janela.
+- Duplo clique na área vazia alterna maximizar/restaurar.
+- Passar o mouse sobre o botão personalizado de maximizar abre Snap Layouts no
+  Windows 11, quando o sistema oferecer esse recurso.
+- Os três controles personalizados continuam funcionando.
+- Arrastar, clicar e digitar nos demais controles continuam com o comportamento
+  atual.
+- A janela continua utilizável fora do Windows.
+
+FORA DO ESCOPO DESTA ETAPA
+--------------------------
+- Restaurar a barra de título nativa do Windows.
+- Redesenhar a página inicial, barra lateral ou o estilo visual das abas e
+  controles; somente a posição das duas linhas e do botão “+” muda.
+- Alterar desempenho, cache, autenticação, permissões ou outras partes do
+  navegador.
+- Executar mudanças adicionais de layout ainda não combinadas com o usuário.
+
+REFERÊNCIAS
+-----------
+Qt QWindow — flags, movimentação e redimensionamento do sistema:
+https://doc.qt.io/qt-6/qwindow.html
+
+Microsoft — Snap Layouts para aplicações desktop do Windows 11:
+https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/ui/apply-snap-layout-menu
+
+Microsoft — hit-testing nativo da janela:
+https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-nchittest
+
+Microsoft — duplo clique na área não cliente:
+https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-nclbuttondblclk
+
+ESTADO
+------
+Escopo atual: manter o layout visual já existente; o botão “+” acompanha a
+última aba. A janela sem moldura recebe estilos nativos de redimensionamento e
+hit-testing do Windows para o botão de maximizar e as bordas. O movimento usa
+`QWindow.startSystemMove()` já existente.
+
+Validação local: compilação Python e testes focados de abas, integração nativa e
+toolbar passaram. A suíte completa ainda tem uma falha preexistente em
+`test_three_dot_menu_offers_edit_and_remove_with_confirmation`; o teste Qt de
+favoritos não pôde importar porque PySide6 não está instalado. Não foi possível
+validar visualmente nem executar o hit-testing nativo neste ambiente Linux; o
+Snap Layouts, Win+Z/Win+setas e o redimensionamento precisam de confirmação no
+Windows.

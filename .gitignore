@@ -3,4 +3,6 @@
 /FFMPEG/
 __pycache__/
 *.py[cod]
+tests/
+dist/
 .hein/

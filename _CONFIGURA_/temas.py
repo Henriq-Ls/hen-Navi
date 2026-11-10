@@ -24,6 +24,15 @@ CHAVES_CORES_PERSONALIZADAS = (
     "private_background",
 )
 CHAVES_FONTES_PERSONALIZADAS = ("font_ui", "font_content")
+LIMITES_METRICAS_PERSONALIZADAS = {
+    "font_size_px": (10, 24),
+    "tab_height_px": (24, 48),
+    "sidebar_icon_size_px": (14, 24),
+    "footer_height_px": (26, 42),
+}
+CHAVES_METRICAS_PERSONALIZADAS = tuple(
+    LIMITES_METRICAS_PERSONALIZADAS
+)
 
 CHAVES_TEMA = frozenset(
     {
@@ -51,6 +60,9 @@ CHAVES_TEMA = frozenset(
         "font_pixel",
         "font_size_px",
         "content_font_size_px",
+        "tab_height_px",
+        "sidebar_icon_size_px",
+        "footer_height_px",
         "radius_px",
         "control_radius_px",
         "border_width_px",
@@ -86,6 +98,9 @@ TEMAS = {
         "font_pixel": "Press Start 2P",
         "font_size_px": 13,
         "content_font_size_px": 14,
+        "tab_height_px": 30,
+        "sidebar_icon_size_px": 18,
+        "footer_height_px": 28,
         "radius_px": 8,
         "control_radius_px": 6,
         "border_width_px": 1,
@@ -118,6 +133,9 @@ TEMAS = {
         "font_pixel": "Press Start 2P",
         "font_size_px": 12,
         "content_font_size_px": 14,
+        "tab_height_px": 30,
+        "sidebar_icon_size_px": 18,
+        "footer_height_px": 28,
         "radius_px": 0,
         "control_radius_px": 0,
         "border_width_px": 3,

@@ -19,7 +19,20 @@ class ShortcutDefinitionTests(unittest.TestCase):
         self.assertTrue(all(item["descricao"].strip() for item in ATALHOS))
 
     def test_browser_registrations_are_listed_in_the_central_registry(self):
-        source = (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+        source = (
+            (PROJECT_ROOT / "browser.py").read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT
+                / "_APP_"
+                / "barra_direita_tools"
+                / "manager.py"
+            ).read_text(encoding="utf-8")
+            + "\n"
+            + (
+                PROJECT_ROOT / "_BROWSER_" / "window_capture.py"
+            ).read_text(encoding="utf-8")
+        )
         tree = ast.parse(source)
         registered_ids = {
             node.args[0].value

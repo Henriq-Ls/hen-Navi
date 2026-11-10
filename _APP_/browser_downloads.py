@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from _ULTILIDADES_.explorer import Explorer, ExplorerMode
 from _ULTILIDADES_.popups import popup_aviso, popup_info
 
 
@@ -362,12 +363,14 @@ class BrowserDownloadsDock(QDockWidget):
             )
             self._update_button_states()
             return
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path.parent))):
-            popup_aviso(
-                TEXTO_UI["browser_downloads_title"],
-                TEXTO_UI["browser_download_open_failed"],
-                self,
-            )
+        dialog = Explorer(
+            self,
+            mode=ExplorerMode.MANAGE,
+            start_path=str(path.parent),
+            title=TEXTO_UI["browser_downloads_open_folder"],
+            remember_location=not self.private,
+        )
+        dialog.exec()
 
     def remove_selected_from_list(self, *_):
         item = self._selected_item()

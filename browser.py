@@ -17,20 +17,20 @@ from _CONFIGURA_ import (
     BUSCADORES_PESQUISA,
     CHAVE_BUSCADOR_PADRAO,
     IMAGEM_ICO,
-    CAPTURA_ALTURA_MAXIMA_PX,
-    CAPTURA_INTERVALO_REPINTURA_MS,
-    CAPTURA_LARGURA_MAXIMA_PX,
-    CAPTURA_PASTA,
     STATUS_CARREGAMENTO_MS,
     STATUS_CURTO_MS,
     STATUS_DOWNLOAD_MS,
-    ESQUEMA_INTERNO,
+    EXPLORER_DEFAULT_IGNORED_NAMES,
+    EXPLORER_MAX_CHARS,
+    EXPLORER_MAX_DEPTH,
+    EXPLORER_MAX_ITEMS,
+    EXPLORER_MAX_LINES,
+    EXPLORER_MAX_SECONDS,
     FONTE_PIXEL_ARQUIVO,
     CHAVE_BLOQUEADOR_ATIVO,
     CHAVE_ECONOMIA_DADOS,
     CHAVE_URL_LISTA_BLOQUEIO,
     LARGURA_ENDERECO_MINIMA,
-    LARGURA_BARRA_CONTROLES_JANELA,
     LIMITE_RECENTES_INICIO,
     NOME_PERFIL_WEB,
     STATUS_DOWNLOAD_INICIO_MS,
@@ -39,7 +39,6 @@ from _CONFIGURA_ import (
     TAMANHO_BOTAO_CONTROLE_JANELA,
     TAMANHO_ICONE_CONTROLE_JANELA,
     TEMA_PADRAO,
-    TITULO_APP,
     URL_LISTA_BLOQUEIO_PADRAO,
     VERSAO_APP,
     ZOOM_INCREMENTO,
@@ -51,8 +50,25 @@ from _CONFIGURA_ import (
 from _LOGS_ import log
 from _APPDATA_ import appdata
 from _SERVICOS_.performance_diagnostics import record_page_load
+from _SERVICOS_.graphics_diagnostics import (
+    GRAPHICS_CAPABILITY_SCRIPT,
+    graphics_diagnostic_snapshot,
+)
 from _THREADS_ import thread_manager
 from _THREADS_.ai_assistant import AiProviderWorker
+from _BROWSER_.page import BrowserPage
+from _BROWSER_.profile_lifecycle import AnonymousProfileLease
+from _BROWSER_.url_schemes import register_custom_url_scheme as _register_custom_url_scheme
+from _BROWSER_.window_controls import (
+    BrandMenuButton,
+    TabCloseButton,
+    _set_button_icon_or_fallback,
+)
+from _BROWSER_.window_panels import BrowserWindowPanelsMixin
+from _BROWSER_.window_frame import BrowserWindowFrameMixin
+from _BROWSER_.window_capture import BrowserWindowCaptureMixin
+from _SERVICOS_.explorer_filesystem import ExplorerLimits
+from _SERVICOS_.explorer_settings import ExplorerSettingsStore
 from _CONFIGURA_.temas import (
     CHAVES_CORES_PERSONALIZADAS,
     CHAVE_TEMA_PERSONALIZADO,
@@ -61,23 +77,19 @@ from _CONFIGURA_.temas import (
 from PySide6.QtCore import (
     QBuffer,
     QEvent,
-    QMimeDatabase,
     QIODevice,
     QObject,
-    QPoint,
     QTimer,
     QStandardPaths,
     QStringListModel,
     QSize,
     Qt,
     QUrl,
-    QUrlQuery,
     Signal,
 )
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
-    QDesktopServices,
     QFont,
     QFontDatabase,
     QIcon,
@@ -86,56 +98,49 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QComboBox,
     QCompleter,
     QDialog,
-    QDockWidget,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
-    QSizeGrip,
-    QSizePolicy,
     QStackedWidget,
     QStatusBar,
+    QSizePolicy,
     QToolBar,
     QToolButton,
-    QTreeView,
     QVBoxLayout,
     QWidget,
 )
 from PySide6.QtWebEngineCore import (
     QWebEngineDownloadRequest,
     QWebEnginePage,
-    QWebEnginePermission,
     QWebEngineProfile,
-    QWebEngineScript,
     QWebEngineSettings,
-    QWebEngineUrlScheme,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebChannel import QWebChannel
 
 from _APP_.Navegador import BrowserTabs
 from _APP_.atalhos_dialog import ShortcutsDialog
-from _APP_.anotacoes import NotesDock
-from _APP_.ai_assistant import AiAssistantDock
 from _APP_.ai_config import AiSettingsDialog
 from _APP_.bloqueador_dialog import BlockerSettingsDialog
-from _APP_.browser_downloads import BrowserDownloadsDock
-from _APP_.dialogs import FavoritesDialog, HistoryDialog
+from _APP_.barra_direita_tools import (
+    FavoritesDialog,
+    HistoryDialog,
+    NotesDock,
+    RightToolsContext,
+    RightToolsManager,
+    RightToolsSidebar,
+)
 from _APP_.favorites_bar import FavoritesStatusBar
 from _APP_.search_suggestions import HomeSearchBridge, SearchSuggestionService
-from _APP_.download_video import VideoDownloadDock
-from _APP_.captura import CaptureManager
-from _APP_.inspector import PageInspectorDock, inspection_pick_marker
+from _APP_.explorer_tab import ExplorerTab
+from _APP_.file_preview import FilePreviewTab
 from _APP_.media_support import MEDIA_CAPABILITY_SCRIPT, summarize_media_capabilities
-from _APP_.performance_panel import PerformancePanel
 from _APP_.performance_status import (
     PerformanceMonitor,
     PerformanceStatusReadout,
@@ -143,13 +148,11 @@ from _APP_.performance_status import (
 from _APP_.password_manager import (
     PASSWORD_SAVE_CANCEL_FALLBACK_SCRIPT,
     PASSWORD_SAVE_RESUME_SCRIPT,
-    PASSWORD_SAVE_SUBMIT_MARKER,
-    PASSWORD_SAVE_SUBMIT_SCRIPT,
     PasswordManagerDialog,
     SaveLoginDialog,
     _READ_LOGIN_SCRIPT,
 )
-from _APP_.security_tools import DevToolsPanel, SiteSecurityDialog
+from _APP_.security_tools import SiteSecurityDialog
 from _APP_.site_privacy import SitePrivacyDialog
 from _APP_.theme_editor import CustomThemeDialog
 from _ULTILIDADES_.icones import (
@@ -169,9 +172,7 @@ from _ULTILIDADES_.icones import (
     ico_favorito_vazio,
     ico_favoritos,
     ico_fechar_aba,
-    ico_fechar_aba_hover,
     ico_fechar,
-    ico_home,
     ico_ferramentas,
     ico_historico,
     ico_ia,
@@ -181,14 +182,12 @@ from _ULTILIDADES_.icones import (
     ico_janela_fechar,
     ico_janela_maximizar,
     ico_janela_minimizar,
-    ico_janela_restaurar,
     ico_limpar,
     ico_localizar,
     ico_inspecionar,
     ico_nova_aba,
     ico_pdf,
     ico_tema,
-    ico_traduzir,
     ico_video_download,
     ico_voltar,
     ico_zoom_mais,
@@ -203,7 +202,6 @@ from _ULTILIDADES_.popups import (
     popup_pergunta,
 )
 from _SERVICOS_.ai_provider_store import ProviderStore, ProviderStoreError
-from _SERVICOS_.folder_upload import collect_folder_upload_files
 from _SERVICOS_.search_suggestions import collect_site_suggestions
 from _SERVICOS_.web_credential_store import (
     WebCredentialStore,
@@ -220,12 +218,11 @@ from _SERVICOS_.adblocker import AdBlockInterceptor, BlocklistDownloadThread
 from _APP_.private_startpage import (
     cleanup_private_start_pages,
     create_private_start_page,
-    remove_private_start_page,
     write_private_start_page,
 )
 from _APP_.startpage import generate_start_page
 from _APPDATA_.storage import BrowserStorage
-from _ULTILIDADES_.capture_utils import capture_filename
+from _ULTILIDADES_.explorer import Explorer
 from _ULTILIDADES_.site_utils import extract_site_host, is_valid_https_url
 from _ULTILIDADES_.utils import is_http_url, resolve_address, search_url
 from _CONFIGURA_.theme_engine import (
@@ -235,439 +232,12 @@ from _CONFIGURA_.theme_engine import (
 )
 
 
-_SCHEME_REGISTERED = False
 MAX_TAB_TITLE_CHARS = 40
 
 
 def register_custom_url_scheme():
     """Registra o esquema interno antes da criação de QApplication."""
-    global _SCHEME_REGISTERED
-    if _SCHEME_REGISTERED:
-        return
-    scheme_name = ESQUEMA_INTERNO.encode("ascii")
-    existing = QWebEngineUrlScheme.schemeByName(scheme_name)
-    if existing.name():
-        _SCHEME_REGISTERED = True
-        return
-    scheme = QWebEngineUrlScheme(scheme_name)
-    scheme.setSyntax(QWebEngineUrlScheme.Syntax.HostAndPort)
-    scheme.setFlags(QWebEngineUrlScheme.Flag.SecureScheme)
-    scheme.setDefaultPort(443)
-    QWebEngineUrlScheme.registerScheme(scheme)
-    _SCHEME_REGISTERED = True
-
-
-class AnonymousProfileLease(QObject):
-    """Mantém um perfil anônimo vivo até a última view ser destruída."""
-
-    def __init__(
-        self,
-        parent,
-        start_page_path: str,
-        matcher: BlocklistMatcher,
-        blocker_enabled: bool,
-        data_saver_enabled: bool = False,
-    ):
-        super().__init__(parent)
-        self.start_page_path = start_page_path
-        self.profile = QWebEngineProfile(self)
-        self.profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
-        self.profile.setPersistentCookiesPolicy(
-            QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies
-        )
-        BrowserController.configure_profile(self.profile)
-        self.interceptor = AdBlockInterceptor(
-            matcher,
-            enabled=blocker_enabled,
-            data_saver_enabled=data_saver_enabled,
-            parent=self,
-        )
-        self.profile.setUrlRequestInterceptor(self.interceptor)
-        self._view_count = 0
-        self._closing = False
-
-    def register_view(self, view: QWebEngineView):
-        self._view_count += 1
-        view.destroyed.connect(self._on_view_destroyed)
-
-    def request_close(self):
-        self._closing = True
-        remove_private_start_page(self.start_page_path)
-        self._release_if_ready()
-
-    def _on_view_destroyed(self, *_):
-        self._view_count = max(0, self._view_count - 1)
-        self._release_if_ready()
-
-    def _release_if_ready(self):
-        if self._closing and self._view_count == 0:
-            remove_private_start_page(self.start_page_path)
-            self.profile.deleteLater()
-            self.deleteLater()
-
-
-class BrowserPage(QWebEnginePage):
-    """Página que intercepta buscas internas do navegador."""
-
-    inspectionElementSelected = Signal(str)
-
-    def __init__(
-        self,
-        profile: QWebEngineProfile,
-        parent_view: QWebEngineView,
-        browser_window: "BrowserWindow",
-        home_file_path: str,
-        *,
-        start_page: bool = False,
-        restored: bool = False,
-    ):
-        super().__init__(profile, parent_view)
-        self.browser_window = browser_window
-        self.home_file_path = os.path.realpath(home_file_path)
-        self.is_start_page_active = start_page
-        self.restore_pending = restored
-        self._search_suggestions_channel = None
-        self.fullScreenRequested.connect(browser_window._on_fullscreen_requested)
-        self.permissionRequested.connect(self._on_permission_requested)
-        if not browser_window.private:
-            password_submit_script = QWebEngineScript()
-            password_submit_script.setName("henNavePasswordSaveOffer")
-            password_submit_script.setInjectionPoint(
-                QWebEngineScript.InjectionPoint.DocumentCreation
-            )
-            password_submit_script.setWorldId(
-                QWebEngineScript.ScriptWorldId.MainWorld
-            )
-            password_submit_script.setRunsOnSubFrames(False)
-            password_submit_script.setSourceCode(PASSWORD_SAVE_SUBMIT_SCRIPT)
-            self.scripts().insert(password_submit_script)
-
-    def set_search_suggestions_channel(self, channel: QWebChannel):
-        self._search_suggestions_channel = channel
-        self.setWebChannel(channel)
-
-    def _on_permission_requested(self, permission: QWebEnginePermission):
-        if not permission.isValid():
-            return
-
-        permission_type = permission.permissionType()
-        permission_types = QWebEnginePermission.PermissionType
-        if permission_type == permission_types.MediaAudioCapture:
-            resource = TEXTO_UI["permission_microphone"]
-        elif permission_type == permission_types.MediaAudioVideoCapture:
-            resource = TEXTO_UI["permission_microphone_camera"]
-        else:
-            permission.deny()
-            return
-
-        origin = permission.origin().toString()
-        answer = popup_pergunta(
-            TEXTO_UI["permission_request_title"],
-            TEXTO_UI["permission_request_message"].format(
-                origin=origin,
-                resource=resource,
-            ),
-            self.browser_window,
-            botao_padrao=QMessageBox.StandardButton.No,
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            permission.grant()
-        else:
-            permission.deny()
-
-    def chooseFiles(self, mode, old_files, accepted_mime_types):
-        selection_modes = QWebEnginePage.FileSelectionMode
-        is_folder = mode == selection_modes.FileSelectUploadFolder
-        is_multiple = mode == selection_modes.FileSelectOpenMultiple
-        is_save = mode == selection_modes.FileSelectSave
-        if mode not in {
-            selection_modes.FileSelectOpen,
-            selection_modes.FileSelectOpenMultiple,
-            selection_modes.FileSelectUploadFolder,
-            selection_modes.FileSelectSave,
-        }:
-            return []
-
-        title = (
-            TEXTO_UI["upload_folder_title"]
-            if is_folder
-            else TEXTO_UI["upload_files_title"]
-        )
-        dialog = QFileDialog(self.browser_window, title)
-        dialog.setOption(
-            QFileDialog.Option.DontUseNativeDialog,
-            True,
-        )
-        dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        dialog.setViewMode(QFileDialog.ViewMode.Detail)
-        dialog.setAcceptMode(
-            QFileDialog.AcceptMode.AcceptSave
-            if is_save
-            else QFileDialog.AcceptMode.AcceptOpen
-        )
-
-        if is_folder:
-            dialog.setFileMode(QFileDialog.FileMode.Directory)
-            dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
-        elif is_multiple:
-            dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
-        elif is_save:
-            dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-        else:
-            dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-        if not is_folder and not is_save:
-            dialog.setNameFilters(self._upload_name_filters(accepted_mime_types))
-
-        self._localize_upload_dialog(dialog, is_folder, is_save)
-        if is_folder:
-            self._translate_directory_filter(dialog)
-
-        if old_files:
-            previous = str(old_files[0] or "")
-            if previous and os.path.isdir(previous):
-                dialog.setDirectory(previous)
-            elif previous and os.path.isfile(previous):
-                dialog.selectFile(previous)
-
-        try:
-            if dialog.exec() != QDialog.DialogCode.Accepted:
-                return []
-            selected = [str(path) for path in dialog.selectedFiles() if path]
-            if is_folder and selected:
-                upload_files = collect_folder_upload_files(selected[0])
-                if upload_files is None:
-                    log.aviso(
-                        "BrowserPage",
-                        "chooseFiles",
-                        "Pasta sem arquivo na raiz; mantendo a seleção de pasta do QtWebEngine.",
-                    )
-                else:
-                    selected = upload_files
-                    log.info(
-                        "BrowserPage",
-                        "chooseFiles",
-                        f"Upload de pasta preparado com {len(selected)} arquivos.",
-                    )
-        except Exception as error:
-            log.erro(
-                "BrowserPage",
-                "chooseFiles",
-                f"Falha ao abrir o seletor Qt: {type(error).__name__}",
-            )
-            return []
-
-        if is_folder:
-            return selected
-        if is_save or not is_multiple:
-            return selected[:1]
-        return selected
-
-    @staticmethod
-    def _localize_upload_dialog(dialog, is_folder, is_save):
-        dialog.setLabelText(
-            QFileDialog.DialogLabel.LookIn,
-            TEXTO_UI["upload_dialog_location_label"],
-        )
-        dialog.setLabelText(
-            QFileDialog.DialogLabel.FileName,
-            TEXTO_UI["upload_dialog_name_label"],
-        )
-        dialog.setLabelText(
-            QFileDialog.DialogLabel.FileType,
-            TEXTO_UI["upload_dialog_type_label"],
-        )
-        dialog.setLabelText(
-            QFileDialog.DialogLabel.Accept,
-            TEXTO_UI[
-                "upload_dialog_select_folder"
-                if is_folder
-                else "upload_dialog_save"
-                if is_save
-                else "upload_dialog_open"
-            ],
-        )
-        dialog.setLabelText(
-            QFileDialog.DialogLabel.Reject,
-            TEXTO_UI["upload_dialog_cancel"],
-        )
-
-        button_labels = {
-            "backButton": (
-                "upload_dialog_back",
-                "upload_dialog_back_description",
-            ),
-            "forwardButton": (
-                "upload_dialog_forward",
-                "upload_dialog_forward_description",
-            ),
-            "toParentButton": (
-                "upload_dialog_parent",
-                "upload_dialog_parent_description",
-            ),
-            "newFolderButton": (
-                "upload_dialog_new_folder",
-                "upload_dialog_new_folder_description",
-            ),
-            "listModeButton": (
-                "upload_dialog_list_view",
-                "upload_dialog_list_view_description",
-            ),
-            "detailModeButton": (
-                "upload_dialog_detail_view",
-                "upload_dialog_detail_view_description",
-            ),
-        }
-        for object_name, (label_key, description_key) in button_labels.items():
-            button = dialog.findChild(QToolButton, object_name)
-            if button is None:
-                continue
-            button.setToolTip(TEXTO_UI[label_key])
-            button.setAccessibleName(TEXTO_UI[label_key])
-            button.setAccessibleDescription(TEXTO_UI[description_key])
-
-        shortcuts = BrowserPage._upload_sidebar_shortcuts()
-        if shortcuts:
-            dialog.setSidebarUrls([url for url, _label in shortcuts])
-            sidebar = dialog.findChild(QListWidget, "sidebar")
-            if sidebar is not None:
-                for index, (_url, label) in enumerate(shortcuts):
-                    item = sidebar.item(index)
-                    if item is not None:
-                        item.setText(label)
-
-        tree_view = dialog.findChild(QTreeView, "treeView")
-        if tree_view is not None:
-            tree_view.setSortingEnabled(True)
-            tree_view.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-
-    @staticmethod
-    def _upload_sidebar_shortcuts():
-        locations = (
-            (
-                QStandardPaths.StandardLocation.DesktopLocation,
-                "upload_dialog_desktop",
-            ),
-            (
-                QStandardPaths.StandardLocation.DownloadLocation,
-                "upload_dialog_downloads",
-            ),
-            (
-                QStandardPaths.StandardLocation.HomeLocation,
-                "upload_dialog_home",
-            ),
-        )
-        shortcuts = []
-        seen_paths = set()
-        for location, label_key in locations:
-            path = QStandardPaths.writableLocation(location).strip()
-            if not path or not os.path.isdir(path):
-                continue
-            normalized_path = os.path.normcase(os.path.abspath(path))
-            if normalized_path in seen_paths:
-                continue
-            seen_paths.add(normalized_path)
-            shortcuts.append(
-                (QUrl.fromLocalFile(path), TEXTO_UI[label_key])
-            )
-        return shortcuts
-
-    @staticmethod
-    def _translate_directory_filter(dialog):
-        filter_combo = dialog.findChild(QComboBox, "fileTypeCombo")
-        if filter_combo is None:
-            return
-        for index in range(filter_combo.count()):
-            if filter_combo.itemText(index).strip().casefold() in {
-                "directories",
-                "folders",
-            }:
-                filter_combo.setItemText(
-                    index,
-                    TEXTO_UI["upload_dialog_directories"],
-                )
-
-    @staticmethod
-    def _upload_name_filters(accepted_mime_types):
-        patterns = set()
-        database = QMimeDatabase()
-        for mime_name in accepted_mime_types or []:
-            mime_name = str(mime_name or "").strip()
-            if not mime_name or "*" in mime_name:
-                continue
-            try:
-                mime_type = database.mimeTypeForName(mime_name)
-                if mime_type.isValid():
-                    patterns.update(mime_type.globPatterns())
-            except (RuntimeError, TypeError):
-                continue
-        filters = []
-        if patterns:
-            filters.append(f"Arquivos aceitos ({' '.join(sorted(patterns))})")
-        filters.append(TEXTO_UI["upload_all_files_filter"])
-        return filters
-
-    def javaScriptConsoleMessage(self, level, message, line_number, source_id):
-        if message == PASSWORD_SAVE_SUBMIT_MARKER:
-            self.browser_window._offer_password_save_after_submit(self)
-            return
-        marker = inspection_pick_marker()
-        if message.startswith(marker):
-            selector = message[len(marker):]
-            if selector:
-                self.inspectionElementSelected.emit(selector)
-            return
-        super().javaScriptConsoleMessage(level, message, line_number, source_id)
-
-    def acceptNavigationRequest(self, url: QUrl, navigation_type, is_main_frame: bool) -> bool:
-        scheme = url.scheme().lower()
-        if scheme == "file":
-            if not is_main_frame:
-                return False
-            requested_path = os.path.realpath(url.toLocalFile())
-            if requested_path != self.home_file_path:
-                return False
-            if self._search_suggestions_channel is not None:
-                self.setWebChannel(self._search_suggestions_channel)
-            query = QUrlQuery(url)
-            if query.hasQueryItem("q"):
-                self.browser_window._queue_home_search(
-                    query.queryItemValue("q"),
-                    self,
-                )
-                return False
-            return True
-
-        if scheme == ESQUEMA_INTERNO:
-            current_url = self.url()
-            is_home_document = (
-                current_url.scheme().lower() == "file"
-                and os.path.realpath(current_url.toLocalFile()) == self.home_file_path
-            )
-            if not is_main_frame or not (
-                self.is_start_page_active or is_home_document
-            ):
-                return False
-            query = QUrlQuery(url).queryItemValue("q")
-            self.browser_window._queue_home_search(query, self)
-            return False
-
-        if not is_main_frame:
-            return True
-
-        if scheme in {"http", "https"}:
-            target = url.toString()
-            if not is_http_url(target):
-                return False
-            self.setWebChannel(None)
-            self.is_start_page_active = False
-            return True
-
-        if scheme == "about" and url.toString().lower() == "about:blank":
-            return True
-        return False
-
-    def createWindow(self, window_type):
-        return self.browser_window._create_popup_page(window_type)
+    _register_custom_url_scheme()
 
 
 class BrowserController(QObject):
@@ -939,6 +509,7 @@ class BrowserController(QObject):
                 private_path,
                 self.blocklist_matcher,
                 self.blocker_enabled,
+                configure_profile=self.configure_profile,
                 data_saver_enabled=self.data_saver_enabled,
             )
             if private
@@ -1199,11 +770,13 @@ class BrowserController(QObject):
             os.path.basename(download.suggestedFileName())
             or TEXTO_UI["download_default_name"]
         )
-        target, _selected_filter = QFileDialog.getSaveFileName(
+        target = Explorer.get_save_file_name(
             window,
-            TEXTO_UI["download_dialog"],
-            os.path.join(downloads_dir, suggested),
-            TEXTO_UI["download_filter"],
+            caption=TEXTO_UI["download_dialog"],
+            directory=downloads_dir,
+            name_filters=(TEXTO_UI["download_filter"],),
+            initial_name=suggested,
+            remember_location=not window.private,
         )
         if not target:
             download.cancel()
@@ -1334,97 +907,12 @@ class BrowserController(QObject):
         self.storage.close()
 
 
-class TabCloseButton(QToolButton):
-    """Botão de fechar aba com feedback visual explícito ao passar o mouse."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("tabCloseButton")
-        self.setIconSize(QSize(14, 14))
-        self.setFixedSize(QSize(24, 24))
-        self.setAutoRaise(True)
-        self.refresh_icon()
-
-    def refresh_icon(self):
-        self.setIcon(
-            ico_fechar_aba_hover() if self.underMouse() else ico_fechar_aba()
-        )
-
-    def enterEvent(self, event):
-        self.setIcon(ico_fechar_aba_hover())
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self.setIcon(ico_fechar_aba())
-        super().leaveEvent(event)
-
-
-class BrandMenuButton(QToolButton):
-    """Botão do app que abre o menu e serve de alça para mover a janela."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._press_position: QPoint | None = None
-        self._window_position: QPoint | None = None
-        self._drag_started = False
-        self._system_move_started = False
-        self.clicked.connect(self._show_app_menu)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._press_position = event.globalPosition().toPoint()
-            self._window_position = self.window().pos()
-            self._drag_started = False
-            self._system_move_started = False
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if (
-            self._press_position is None
-            or not event.buttons() & Qt.MouseButton.LeftButton
-        ):
-            super().mouseMoveEvent(event)
-            return
-
-        position = event.globalPosition().toPoint()
-        delta = position - self._press_position
-        if not self._drag_started:
-            if delta.manhattanLength() < QApplication.startDragDistance():
-                event.accept()
-                return
-            self._drag_started = True
-            handle = self.window().windowHandle()
-            if handle is not None:
-                try:
-                    self._system_move_started = bool(handle.startSystemMove())
-                except RuntimeError:
-                    self._system_move_started = False
-
-        if not self._system_move_started and self._window_position is not None:
-            self.window().move(self._window_position + delta)
-        event.accept()
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and self._press_position:
-            if not self._drag_started:
-                self._show_app_menu()
-            self._press_position = None
-            self._window_position = None
-            self._drag_started = False
-            self._system_move_started = False
-            event.accept()
-            return
-        super().mouseReleaseEvent(event)
-
-    def _show_app_menu(self, *_):
-        menu = self.menu()
-        if menu is not None:
-            menu.popup(self.mapToGlobal(QPoint(0, self.height())))
-
-
-class BrowserWindow(QMainWindow):
+class BrowserWindow(
+    BrowserWindowPanelsMixin,
+    BrowserWindowFrameMixin,
+    BrowserWindowCaptureMixin,
+    QMainWindow,
+):
     """Janela de navegação comum ou anônima."""
 
     def __init__(
@@ -1447,6 +935,10 @@ class BrowserWindow(QMainWindow):
         menu_bar.hide()
         self.controller = controller
         self.private = private
+        self._theme = obter_tema(
+            self.controller.theme_id,
+            custom_theme=self.controller.custom_theme,
+        )
         self.ai_store = ProviderStore(appdata.pasta_config)
         self.web_credential_store = WebCredentialStore(appdata.pasta_config)
         self._ai_workers: list[AiProviderWorker] = []
@@ -1467,11 +959,12 @@ class BrowserWindow(QMainWindow):
         )
         self._blocked_counts_cache = self.blocker_interceptor.counts_snapshot()
         self.notes_dock: NotesDock | None = None
-        self.video_download_dock: VideoDownloadDock | None = None
-        self.downloads_dock: BrowserDownloadsDock | None = None
-        self.performance_panel: PerformancePanel | None = None
+        self.video_download_dock: QWidget | None = None
+        self.downloads_dock: QWidget | None = None
+        self.performance_panel: QWidget | None = None
         self._closing = False
         self._initializing = True
+        self._windows_frame_style_applied = False
         self._fullscreen_active = False
         self._window_state_before_fullscreen = Qt.WindowState.WindowNoState
         self._dialogs: list[QWidget] = []
@@ -1486,10 +979,6 @@ class BrowserWindow(QMainWindow):
         self._address_suggestion_targets: dict[str, str] = {}
         self._address_suggestion_queries: dict[str, str] = {}
         self._address_suggestion_query = ""
-        self.capture_manager = CaptureManager(self)
-        self.capture_manager.imageSaved.connect(self._show_capture_saved)
-        self.capture_manager.pdfSaved.connect(self._show_pdf_saved)
-        self.capture_manager.failed.connect(self._show_capture_error)
         self.setProperty("privateMode", "true" if private else "false")
         self.setStyleSheet(
             stylesheet_for_theme(
@@ -1518,6 +1007,11 @@ class BrowserWindow(QMainWindow):
         return status_bar if status_bar is not None else super().statusBar()
 
     def _build_interface(self):
+        theme = self._theme
+        footer_height = max(
+            theme["footer_height_px"],
+            theme["font_size_px"] + 12,
+        )
         self._window_content = QWidget(self)
         self._window_content.setObjectName("windowContent")
         self._window_content_layout = QVBoxLayout(self._window_content)
@@ -1543,6 +1037,11 @@ class BrowserWindow(QMainWindow):
         self._side_panel_layout.setContentsMargins(0, 0, 0, 0)
         self._side_panel_layout.setSpacing(0)
 
+        self._side_panel_tabs_inset = QWidget(self._side_panel_container)
+        self._side_panel_tabs_inset.setObjectName("sidePanelTabsInset")
+        self._side_panel_tabs_inset.setFixedHeight(0)
+        self._side_panel_layout.addWidget(self._side_panel_tabs_inset)
+
         self._side_panel_header = QWidget(self._side_panel_container)
         self._side_panel_header.setObjectName("sidePanelHeader")
         side_panel_header_layout = QHBoxLayout(self._side_panel_header)
@@ -1567,29 +1066,21 @@ class BrowserWindow(QMainWindow):
         self._side_panel_layout.addWidget(self._side_panel_stack, 1)
         self._side_panel_container.hide()
         self._body_row_layout.addWidget(self._side_panel_container)
+
+        self.sidebar_toolbar = RightToolsSidebar(
+            self._body_row,
+            translate_callback=self.translate_current_page,
+            icon_size=theme["sidebar_icon_size_px"],
+        )
+        self.capture_button = self.sidebar_toolbar.capture_button
+        self.video_download_button = self.sidebar_toolbar.video_download_button
+        self.notes_button = self.sidebar_toolbar.notes_button
+        self.ai_button = self.sidebar_toolbar.ai_button
+        self.translate_button = self.sidebar_toolbar.translate_button
+        self._body_row_layout.addWidget(self.sidebar_toolbar)
+
         self._window_content_layout.addWidget(self._body_row, 1)
         self._active_side_panel: str | None = None
-
-        self.window_controls_toolbar = QToolBar(
-            TEXTO_UI["window_controls_toolbar"],
-            self,
-        )
-        self.window_controls_toolbar.setObjectName("windowControlsToolbar")
-        self.window_controls_toolbar.setOrientation(Qt.Orientation.Vertical)
-        self.window_controls_toolbar.setMovable(False)
-        self.window_controls_toolbar.setFloatable(False)
-        self.window_controls_toolbar.setAllowedAreas(
-            Qt.ToolBarArea.RightToolBarArea
-        )
-        self.window_controls_toolbar.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonIconOnly
-        )
-        self.window_controls_toolbar.setIconSize(
-            QSize(TAMANHO_ICONE_CONTROLE_JANELA, TAMANHO_ICONE_CONTROLE_JANELA)
-        )
-        self.window_controls_toolbar.setFixedWidth(
-            LARGURA_BARRA_CONTROLES_JANELA
-        )
 
         self.close_window_action = self._make_action(
             TEXTO_UI["window_close"],
@@ -1606,20 +1097,6 @@ class BrowserWindow(QMainWindow):
             ico_janela_minimizar(),
             lambda _checked=False: self.showMinimized(),
         )
-        self.close_window_button = self._add_window_control_button(
-            self.close_window_action,
-            "closeWindowButton",
-        )
-        self.maximize_window_button = self._add_window_control_button(
-            self.maximize_window_action,
-            "maximizeWindowButton",
-        )
-        self.minimize_window_button = self._add_window_control_button(
-            self.minimize_window_action,
-            "minimizeWindowButton",
-        )
-        self.window_controls_toolbar.addSeparator()
-
         self.toolbar = QToolBar(
             TEXTO_UI["navigation_toolbar"],
             self._window_content,
@@ -1650,17 +1127,17 @@ class BrowserWindow(QMainWindow):
             self.reload_current,
             atalho("recarregar"),
         )
-        self.home_action = self._make_action(
+        self.home_shortcut_action = self._make_action(
             TEXTO_UI["home"],
-            ico_home(),
+            QIcon(),
             self.go_home,
             atalho("inicio"),
         )
+        self.addAction(self.home_shortcut_action)
         for action in (
             self.back_action,
             self.forward_action,
             self.reload_action,
-            self.home_action,
         ):
             self.toolbar.addAction(action)
 
@@ -1669,6 +1146,10 @@ class BrowserWindow(QMainWindow):
         self.address_bar.setPlaceholderText(TEXTO_UI["address_placeholder"])
         self.address_bar.setToolTip(TEXTO_UI["suggestions_privacy_hint"])
         self.address_bar.setMinimumWidth(LARGURA_ENDERECO_MINIMA)
+        self.address_bar.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
         self.address_bar.setClearButtonEnabled(True)
         self.address_bar.returnPressed.connect(self.navigate_address)
         self._address_suggestion_model = QStringListModel(self)
@@ -1688,89 +1169,7 @@ class BrowserWindow(QMainWindow):
             self._on_address_suggestion_activated
         )
         self.toolbar.addWidget(self.address_bar)
-
-        self.blocker_button = QToolButton(self)
-        self.blocker_button.setObjectName("blockerButton")
-        self.blocker_button.setIcon(ico_bloqueador())
-        self.blocker_button.setIconSize(QSize(14, 14))
-        self.blocker_button.setToolButtonStyle(
-            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-        )
-        self.blocker_button.setText("0")
-        self.blocker_button.setToolTip(TEXTO_UI["blocker_tooltip_no_site"])
-        self.blocker_button.clicked.connect(self.toggle_site_blocker)
-        self.toolbar.addWidget(self.blocker_button)
-
-        self.data_saver_button = QToolButton(self)
-        self.data_saver_button.setObjectName("dataSaverButton")
-        self.data_saver_button.setIcon(ico_economia_dados())
-        self.data_saver_button.setIconSize(QSize(16, 16))
-        self.data_saver_button.setFixedSize(QSize(28, 28))
-        self.data_saver_button.setCheckable(True)
-        self.data_saver_button.setAccessibleName(TEXTO_UI["data_saver_name"])
-        self.data_saver_button.clicked.connect(self._set_data_saver_from_button)
-        self.toolbar.addWidget(self.data_saver_button)
-
-        self.favorite_button = QToolButton(self)
-        self.favorite_button.setObjectName("favoriteButton")
-        self.favorite_button.setIcon(ico_favorito_vazio())
-        self.favorite_button.setIconSize(QSize(18, 18))
-        self.favorite_button.setFixedSize(QSize(28, 28))
-        self.favorite_button.setToolTip(TEXTO_UI["favorite_add"])
-        self.favorite_button.setAccessibleName(TEXTO_UI["favorite_toggle"])
-        self.favorite_button.clicked.connect(self.toggle_favorite)
-        self.toolbar.addWidget(self.favorite_button)
-
-        self.video_download_button = QToolButton(self)
-        self.video_download_button.setObjectName("videoDownloadButton")
-        self.video_download_button.setIcon(ico_video_download())
-        self.video_download_button.setIconSize(QSize(16, 16))
-        self.video_download_button.setFixedSize(QSize(28, 28))
-        self.video_download_button.setToolTip(TEXTO_UI["video_download_button"])
-        self.video_download_button.setAccessibleName(
-            TEXTO_UI["video_download_button"]
-        )
-        self.toolbar.addWidget(self.video_download_button)
-
-        self.capture_button = QToolButton(self)
-        self.capture_button.setObjectName("captureButton")
-        self.capture_button.setIcon(ico_captura())
-        self.capture_button.setIconSize(QSize(16, 16))
-        self.capture_button.setFixedSize(QSize(28, 28))
-        self.capture_button.setToolTip(TEXTO_UI["capture_menu"])
-        self.capture_button.setAccessibleName(TEXTO_UI["capture_menu"])
-        self.capture_button.setPopupMode(
-            QToolButton.ToolButtonPopupMode.InstantPopup
-        )
-        self.toolbar.addWidget(self.capture_button)
-
-        self.notes_button = QToolButton(self)
-        self.notes_button.setObjectName("notesButton")
-        self.notes_button.setIcon(ico_anotacoes())
-        self.notes_button.setIconSize(QSize(16, 16))
-        self.notes_button.setFixedSize(QSize(28, 28))
-        self.notes_button.setToolTip(TEXTO_UI["notes_title"])
-        self.notes_button.setAccessibleName(TEXTO_UI["notes_title"])
-        self.toolbar.addWidget(self.notes_button)
-
-        self.ai_button = QToolButton(self)
-        self.ai_button.setObjectName("aiButton")
-        self.ai_button.setIcon(ico_ia())
-        self.ai_button.setIconSize(QSize(16, 16))
-        self.ai_button.setFixedSize(QSize(28, 28))
-        self.ai_button.setToolTip(TEXTO_UI["ai_placeholder"])
-        self.ai_button.setAccessibleName(TEXTO_UI["ai_placeholder"])
-        self.toolbar.addWidget(self.ai_button)
-
-        self.translate_button = QToolButton(self)
-        self.translate_button.setObjectName("translateButton")
-        self.translate_button.setIcon(ico_traduzir())
-        self.translate_button.setIconSize(QSize(16, 16))
-        self.translate_button.setFixedSize(QSize(28, 28))
-        self.translate_button.setToolTip(TEXTO_UI["translate_page"])
-        self.translate_button.setAccessibleName(TEXTO_UI["translate_page"])
-        self.translate_button.clicked.connect(self.translate_current_page)
-        self.toolbar.addWidget(self.translate_button)
+        self._create_top_page_buttons()
 
         self.blocker_interceptor.blockedCountChanged.connect(
             self._on_blocked_count_changed,
@@ -1798,52 +1197,90 @@ class BrowserWindow(QMainWindow):
             self.private_indicator.setEnabled(False)
             self.toolbar.addWidget(self.private_indicator)
 
+        self._create_top_window_controls()
         self.main_menu = self._build_menu()
+        self._create_explorer_action()
         self.brand_button.setMenu(self.main_menu)
 
         self.tabs = BrowserTabs(self)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self._on_current_changed)
-        self.tabs.setCornerWidget(self._build_corner_button())
+        self.tabs.set_new_tab_button(self._build_new_tab_button())
 
         self._left_layout.addWidget(self.tabs, 1)
+        self._update_side_panel_tabs_inset()
         self._left_layout.addWidget(self._build_find_bar())
         self._status_bar = QStatusBar(self._left_panel)
         self._status_bar.setSizeGripEnabled(False)
+        self._status_bar.setFixedSize(220, footer_height)
         self.performance_readout = PerformanceStatusReadout(
             self.controller.performance_monitor,
             self._status_bar,
         )
-        self._status_bar.addPermanentWidget(self.performance_readout)
+        # A mensagem temporária do QStatusBar oculta este indicador normal.
+        self._status_bar.addWidget(self.performance_readout)
         self.favorites_status_bar = FavoritesStatusBar(
             self.controller.storage,
             self._left_panel,
+            font_size_px=theme["font_size_px"],
+            bar_height_px=footer_height,
         )
         self.favorites_status_bar.openRequested.connect(self.open_url_new_tab)
         self.favorites_status_bar.openAllRequested.connect(self.open_favorites)
         self.favorites_status_bar.changed.connect(
             self._refresh_favorite_surfaces
         )
-        self._left_layout.addWidget(self._status_bar)
-        self._left_layout.addWidget(self.favorites_status_bar)
+        self._footer_bar = QWidget(self._left_panel)
+        self._footer_bar.setObjectName("favoritesAndStatusFooter")
+        self._footer_layout = QHBoxLayout(self._footer_bar)
+        self._footer_layout.setContentsMargins(0, 0, 0, 0)
+        self._footer_layout.setSpacing(0)
+        self._footer_layout.addWidget(self.favorites_status_bar, 1)
+        self._footer_layout.addWidget(self._status_bar, 0)
+        self._left_layout.addWidget(self._footer_bar)
         self.favorites_status_bar.setVisible(True)
         self.setCentralWidget(self._window_content)
         self.find_bar.hide()
-        self._status_bar.showMessage(TEXTO_UI["ready"])
-        self._create_notes_dock()
-        self.notes_button.setDefaultAction(self.notes_action)
-        self._create_video_download_dock()
-        self.video_download_button.setDefaultAction(self.video_download_action)
-        self._create_browser_downloads_dock()
-        self._add_sidebar_action_button(self.history_action)
-        self._create_inspector_dock()
-        self._create_devtools_panel()
-        self._create_ai_dock()
-        self._create_performance_action()
+        self.tools_manager = RightToolsManager(
+            RightToolsContext(
+                parent=self,
+                controller=self.controller,
+                profile=self.profile,
+                private=self.private,
+                panel_stack=self._side_panel_stack,
+                sidebar=self.sidebar_toolbar,
+                notes_button=self.notes_button,
+                video_download_button=self.video_download_button,
+                ai_button=self.ai_button,
+                history_action=self.history_action,
+                downloads_action=self.downloads_action,
+                security_performance_menu=self.security_performance_menu,
+                callbacks={
+                    "open_note_host": self.open_note_host,
+                    "note_indicator_changed": self._on_note_indicator_changed,
+                    "video_visibility_changed": (
+                        self._on_video_download_visibility_changed
+                    ),
+                    "inspector_visibility_changed": (
+                        self._on_inspector_visibility_changed
+                    ),
+                    "toggle_side_panel": self._toggle_side_panel,
+                    "current_view": self._current_view,
+                    "handle_ai_request": self._handle_ai_request,
+                    "cancel_ai_request": self._cancel_ai_request,
+                    "open_ai_settings": self.open_ai_settings,
+                    "refresh_ai_provider": self._refresh_ai_provider,
+                    "open_gpu_diagnostic": self.open_gpu_diagnostic,
+                    "capture_image_saved": self._show_capture_saved,
+                    "capture_pdf_saved": self._show_pdf_saved,
+                    "capture_failed": self._show_capture_error,
+                },
+            )
+        )
+        self.tools_manager.initialize()
         self._build_capture_menu()
         self._build_settings_menu()
-        self._finish_window_controls_toolbar()
-        self._arrange_right_docks()
+        self._finish_window_layout()
 
     def _make_action(self, label, icon, callback, shortcut=None):
         action = QAction(icon, label, self)
@@ -1854,12 +1291,91 @@ class BrowserWindow(QMainWindow):
             action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
         return action
 
-    def _add_window_control_button(
+    def _create_top_page_buttons(self):
+        """Coloca os três controles da página ao lado do campo de endereço."""
+        self.blocker_button = self._add_top_page_button(
+            "blockerButton",
+            ico_bloqueador(),
+            TEXTO_UI["blocker_tooltip_no_site"],
+            self.toggle_site_blocker,
+            icon_size=12,
+            text="0",
+            button_style=Qt.ToolButtonStyle.ToolButtonTextBesideIcon,
+            fixed_width=False,
+        )
+        self.data_saver_button = self._add_top_page_button(
+            "dataSaverButton",
+            ico_economia_dados(),
+            TEXTO_UI["data_saver_name"],
+            self._set_data_saver_from_button,
+            accessible_name=TEXTO_UI["data_saver_name"],
+            checkable=True,
+        )
+        self.favorite_button = self._add_top_page_button(
+            "favoriteButton",
+            ico_favorito_vazio(),
+            TEXTO_UI["favorite_add"],
+            self.toggle_favorite,
+            accessible_name=TEXTO_UI["favorite_toggle"],
+        )
+
+    def _add_top_page_button(
+        self,
+        object_name: str,
+        icon,
+        tooltip: str,
+        callback,
+        *,
+        icon_size: int = 14,
+        accessible_name: str | None = None,
+        checkable: bool = False,
+        text: str | None = None,
+        button_style: Qt.ToolButtonStyle | None = None,
+        fixed_width: bool = True,
+    ) -> QToolButton:
+        button = QToolButton(self.toolbar)
+        button.setObjectName(object_name)
+        button.setIcon(icon)
+        button.setIconSize(QSize(icon_size, icon_size))
+        button.setToolTip(tooltip)
+        if accessible_name:
+            button.setAccessibleName(accessible_name)
+        if button_style is not None:
+            button.setToolButtonStyle(button_style)
+        if checkable:
+            button.setCheckable(True)
+        if text is not None:
+            button.setText(text)
+        if fixed_width:
+            button.setFixedSize(QSize(26, 26))
+        else:
+            button.setFixedHeight(26)
+        button.clicked.connect(callback)
+        self.toolbar.addWidget(button)
+        return button
+
+    def _create_top_window_controls(self):
+        """Anexa os controles da janela após os controles de página."""
+        self.toolbar.addSeparator()
+        self.minimize_window_button = self._add_top_window_control_button(
+            self.minimize_window_action,
+            "minimizeWindowButton",
+        )
+        self.maximize_window_button = self._add_top_window_control_button(
+            self.maximize_window_action,
+            "maximizeWindowButton",
+        )
+        self.close_window_button = self._add_top_window_control_button(
+            self.close_window_action,
+            "closeWindowButton",
+        )
+
+    def _add_top_window_control_button(
         self,
         action: QAction,
         object_name: str,
     ) -> QToolButton:
-        button = QToolButton(self.window_controls_toolbar)
+        button = QToolButton(self.toolbar)
         button.setObjectName(object_name)
         button.setDefaultAction(action)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -1875,65 +1391,43 @@ class BrowserWindow(QMainWindow):
         button.setAccessibleName(action.text())
         button.setToolTip(action.toolTip())
         button.setAutoRaise(True)
-        self.window_controls_toolbar.addWidget(button)
+        self.toolbar.addWidget(button)
         return button
 
-    def _add_sidebar_action_button(self, action: QAction) -> QToolButton:
-        object_name = {
-            getattr(self, "history_action", None): "historyButton",
-            getattr(self, "downloads_action", None): "browserDownloadsButton",
-            getattr(self, "inspect_action", None): "inspectPageButton",
-            getattr(self, "devtools_action", None): "developerToolsButton",
-            getattr(self, "open_app_data_action", None): "openAppDataButton",
-            getattr(self, "clear_cache_action", None): "clearCacheButton",
-            getattr(self, "performance_action", None): "performanceMonitorButton",
-        }.get(action, "sidebarActionButton")
-        return self._add_window_control_button(action, object_name)
-
-    def _finish_window_controls_toolbar(self):
-        spacer = QWidget(self.window_controls_toolbar)
-        spacer.setObjectName("windowControlsSpacer")
-        spacer.setSizePolicy(
-            QSizePolicy.Policy.Minimum,
-            QSizePolicy.Policy.Expanding,
-        )
-        self.window_controls_toolbar.addWidget(spacer)
-
-        self.window_resize_grip = QSizeGrip(self.window_controls_toolbar)
-        self.window_resize_grip.setObjectName("windowResizeGrip")
-        self.window_resize_grip.setFixedSize(
-            QSize(
-                TAMANHO_BOTAO_CONTROLE_JANELA,
-                TAMANHO_BOTAO_CONTROLE_JANELA,
+    def _finish_window_layout(self):
+        self.bottom_maintenance_buttons = self.sidebar_toolbar.finish_layout(
+            (
+                (self.clear_cache_action, "clearCacheButton"),
+                (self.open_app_data_action, "openAppDataButton"),
             )
         )
-        self.window_resize_grip.setToolTip(TEXTO_UI["window_resize"])
-        self.window_controls_toolbar.addWidget(self.window_resize_grip)
         self._update_window_controls()
 
-    def _toggle_maximize_restore(self, *_):
-        if self.isMaximized():
-            self.showNormal()
-        else:
-            self.showMaximized()
-        self._update_window_controls()
-
-    def _update_window_controls(self):
-        action = getattr(self, "maximize_window_action", None)
-        if action is None:
+    def _update_side_panel_tabs_inset(self):
+        inset = getattr(self, "_side_panel_tabs_inset", None)
+        tabs = getattr(self, "tabs", None)
+        if inset is None or tabs is None:
             return
-        if self.isMaximized():
-            label = TEXTO_UI["window_restore"]
-            action.setIcon(ico_janela_restaurar())
-        else:
-            label = TEXTO_UI["window_maximize"]
-            action.setIcon(ico_janela_maximizar())
-        action.setText(label)
-        action.setToolTip(label)
-        button = getattr(self, "maximize_window_button", None)
-        if button is not None:
-            button.setAccessibleName(label)
-            button.setToolTip(label)
+
+        tab_bar = tabs.tabBar()
+        tab_bar.ensurePolished()
+        height = 0 if self._fullscreen_active else tab_bar.sizeHint().height()
+        inset.setFixedHeight(max(0, height))
+
+    def _create_explorer_action(self):
+        """Registra o atalho do Explorador e sua ação na barra direita."""
+        self.explorer_action = self._make_action(
+            TEXTO_UI["explorer_action"],
+            ico_abrir(),
+            self.open_explorer,
+            atalho("explorador"),
+        )
+        self.addAction(self.explorer_action)
+        self.sidebar_toolbar.add_action_button(
+            self.explorer_action,
+            "explorerButton",
+            at_top=True,
+        )
 
     def _build_menu(self) -> QMenu:
         menu = QMenu(self)
@@ -2026,15 +1520,8 @@ class BrowserWindow(QMainWindow):
             self.open_gpu_diagnostic,
         )
 
-        for action in (
-            self.history_action,
-            self.favorites_action,
-            self.downloads_action,
-            self.password_manager_action,
-            self.site_security_action,
-            self.site_privacy_action,
-        ):
-            menu.addAction(action)
+        menu.addAction(self.favorites_action)
+        self.addAction(self.history_action)
         menu.addSeparator()
         menu.addAction(self.new_window_action)
         menu.addAction(self.private_window_action)
@@ -2045,14 +1532,24 @@ class BrowserWindow(QMainWindow):
         menu.addAction(self.zoom_reset_action)
         menu.addSeparator()
         menu.addAction(self.clear_history_action)
-        menu.addAction(self.media_diagnostic_action)
-        menu.addAction(self.gpu_diagnostic_action)
+
+        self.security_performance_menu = menu.addMenu(
+            ico_info(),
+            TEXTO_UI["security_performance_menu"],
+        )
+        self.security_performance_menu.addAction(self.media_diagnostic_action)
+        self.security_performance_menu.addAction(self.gpu_diagnostic_action)
+        self.security_performance_menu.addSeparator()
+        self.security_performance_menu.addAction(self.site_security_action)
+        self.security_performance_menu.addAction(self.password_manager_action)
+        self.security_performance_menu.addAction(self.site_privacy_action)
+        self.security_performance_menu.addSeparator()
         menu.addAction(self.about_action)
 
         self.new_tab_action = self._make_action(
             TEXTO_UI["new_tab"],
             ico_nova_aba(),
-            self.new_home_tab,
+            self.new_tab,
             atalho("nova_aba"),
         )
         self.close_tab_action = self._make_action(
@@ -2078,292 +1575,6 @@ class BrowserWindow(QMainWindow):
         self.addAction(self.address_action)
         self.addAction(self.favorite_action)
         return menu
-
-    def _create_notes_dock(self):
-        if self.private:
-            self.notes_action = QAction(TEXTO_UI["notes_title"], self)
-            self.notes_action.setIcon(ico_anotacoes())
-            self.notes_action.setEnabled(False)
-            self.notes_action.setToolTip(TEXTO_UI["notes_private_unavailable"])
-            return
-
-        self.notes_dock = NotesDock(
-            self.controller.storage,
-            self._side_panel_stack,
-        )
-        self.notes_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
-        )
-        self._side_panel_stack.addWidget(self.notes_dock)
-        self.notes_dock.hide()
-        self.notes_dock.openHostRequested.connect(self.open_note_host)
-        self.notes_action = QAction(
-            ico_anotacoes(),
-            TEXTO_UI["notes_title"],
-            self,
-        )
-        self.notes_action.setCheckable(True)
-        self.notes_action.setIcon(ico_anotacoes())
-        self.notes_action.setToolTip(TEXTO_UI["notes_title"])
-        self.notes_action.setShortcut(QKeySequence(atalho("anotacoes")))
-        self.notes_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
-        self.notes_action.triggered.connect(
-            lambda _checked=False: self._toggle_side_panel("notes")
-        )
-        self.notes_dock.noteChanged.connect(self._on_note_indicator_changed)
-
-    def _create_video_download_dock(self):
-        self.video_download_dock = VideoDownloadDock(
-            self._side_panel_stack,
-        )
-        self.video_download_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
-        )
-        self._side_panel_stack.addWidget(self.video_download_dock)
-        self.video_download_dock.hide()
-        self.video_download_dock.visibilityChanged.connect(
-            self._on_video_download_visibility_changed
-        )
-        self.video_download_action = QAction(
-            ico_video_download(),
-            TEXTO_UI["video_download_button"],
-            self,
-        )
-        self.video_download_action.setCheckable(True)
-        self.video_download_action.setIcon(ico_video_download())
-        self.video_download_action.setToolTip(TEXTO_UI["video_download_button"])
-        self.video_download_action.triggered.connect(
-            lambda _checked=False: self._toggle_side_panel("video")
-        )
-
-    def _create_browser_downloads_dock(self):
-        self.downloads_dock = BrowserDownloadsDock(
-            None if self.private else self.controller.storage,
-            private=self.private,
-            parent=self._side_panel_stack,
-        )
-        self.downloads_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
-        )
-        self._side_panel_stack.addWidget(self.downloads_dock)
-        self.downloads_dock.hide()
-        self._add_sidebar_action_button(self.downloads_action)
-
-    def _create_inspector_dock(self):
-        self.inspector_dock = PageInspectorDock(
-            self._side_panel_stack,
-        )
-        self.inspector_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
-        )
-        self._side_panel_stack.addWidget(self.inspector_dock)
-        self.inspector_dock.hide()
-        self.inspector_dock.visibilityChanged.connect(
-            self._on_inspector_visibility_changed
-        )
-        self.inspect_action = QAction(
-            ico_inspecionar(),
-            TEXTO_UI["inspect_page"],
-            self,
-        )
-        self.inspect_action.setCheckable(True)
-        self.inspect_action.setIcon(ico_inspecionar())
-        self.inspect_action.setToolTip(TEXTO_UI["inspect_page"])
-        self.inspect_action.triggered.connect(
-            lambda _checked=False: self._toggle_side_panel("inspector")
-        )
-        self._add_sidebar_action_button(self.inspect_action)
-        view = self._current_view()
-        self.inspector_dock.set_page(view.page() if view else None)
-
-    def _create_devtools_panel(self):
-        self.devtools_panel = DevToolsPanel(
-            self.profile,
-            self._side_panel_stack,
-        )
-        self._side_panel_stack.addWidget(self.devtools_panel)
-        self.devtools_panel.hide()
-        self.devtools_action = QAction(
-            ico_ferramentas(),
-            TEXTO_UI["devtools_action"],
-            self,
-        )
-        self.devtools_action.setCheckable(True)
-        self.devtools_action.setIcon(ico_ferramentas())
-        self.devtools_action.setToolTip(TEXTO_UI["devtools_action"])
-        self.devtools_action.triggered.connect(
-            lambda _checked=False: self._toggle_side_panel("devtools")
-        )
-        self._add_sidebar_action_button(self.devtools_action)
-
-    def _create_ai_dock(self):
-        self.ai_dock = AiAssistantDock(self._side_panel_stack)
-        self.ai_dock.setFeatures(
-            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
-        )
-        self._side_panel_stack.addWidget(self.ai_dock)
-        self.ai_dock.hide()
-        self.ai_dock.requestRequested.connect(self._handle_ai_request)
-        self.ai_dock.cancelRequested.connect(self._cancel_ai_request)
-        self.ai_dock.settingsRequested.connect(self.open_ai_settings)
-        self.ai_action = QAction(
-            ico_ia(),
-            TEXTO_UI["ai_placeholder"],
-            self,
-        )
-        self.ai_action.setCheckable(True)
-        self.ai_action.setShortcut(QKeySequence(atalho("assistente_ia")))
-        self.ai_action.setShortcutContext(Qt.ShortcutContext.WindowShortcut)
-        self.ai_action.setToolTip(TEXTO_UI["ai_placeholder"])
-        self.ai_action.triggered.connect(
-            lambda _checked=False: self._toggle_side_panel("ai")
-        )
-        self.addAction(self.ai_action)
-        self.ai_button.setDefaultAction(self.ai_action)
-        self._refresh_ai_provider()
-
-    def _create_performance_action(self):
-        self.performance_action = QAction(
-            ico_info(),
-            TEXTO_UI["performance_panel_title"],
-            self,
-        )
-        self.performance_action.setCheckable(True)
-        self.performance_action.setToolTip(
-            TEXTO_UI["performance_panel_title"]
-        )
-        self.performance_action.triggered.connect(
-            self._toggle_performance_panel
-        )
-        self._add_sidebar_action_button(self.performance_action)
-
-    def _toggle_performance_panel(self, *_):
-        if self.performance_panel is None:
-            self.performance_panel = PerformancePanel(
-                self.controller.performance_monitor,
-                self.open_gpu_diagnostic,
-                self._side_panel_stack,
-            )
-            self._side_panel_stack.addWidget(self.performance_panel)
-            self.performance_panel.hide()
-        self._toggle_side_panel("performance")
-
-    def translate_current_page(self, *_):
-        if (
-            self._active_side_panel != "ai"
-            or not self._side_panel_container.isVisible()
-        ):
-            self._toggle_side_panel("ai")
-        else:
-            self._refresh_ai_provider()
-            self.ai_dock.set_context_key(
-                self._ai_context_key(self._current_view())
-            )
-        self.ai_dock.request_translation()
-
-    def _arrange_right_docks(self):
-        self.addToolBar(
-            Qt.ToolBarArea.RightToolBarArea,
-            self.window_controls_toolbar,
-        )
-
-    def _pin_window_controls_to_right(self):
-        """Mantém a barra na área externa direita, fora do layout dos painéis."""
-        self.addToolBar(
-            Qt.ToolBarArea.RightToolBarArea,
-            self.window_controls_toolbar,
-        )
-        self.window_controls_toolbar.setMovable(False)
-        self.window_controls_toolbar.setFloatable(False)
-        self.window_controls_toolbar.setAllowedAreas(
-            Qt.ToolBarArea.RightToolBarArea
-        )
-
-    def _toggle_side_panel(self, panel_name: str):
-        panels = {
-            "notes": (self.notes_dock, getattr(self, "notes_action", None)),
-            "video": (
-                self.video_download_dock,
-                getattr(self, "video_download_action", None),
-            ),
-            "downloads": (
-                self.downloads_dock,
-                getattr(self, "downloads_action", None),
-            ),
-            "inspector": (
-                self.inspector_dock,
-                getattr(self, "inspect_action", None),
-            ),
-            "devtools": (
-                self.devtools_panel,
-                getattr(self, "devtools_action", None),
-            ),
-            "ai": (
-                self.ai_dock,
-                getattr(self, "ai_action", None),
-            ),
-            "performance": (
-                self.performance_panel,
-                getattr(self, "performance_action", None),
-            ),
-        }
-        panel, _action = panels[panel_name]
-        if panel is None:
-            return
-
-        if (
-            self._active_side_panel == panel_name
-            and self._side_panel_container.isVisible()
-        ):
-            self._side_panel_container.hide()
-            self._active_side_panel = None
-        else:
-            self._active_side_panel = panel_name
-            self._side_panel_stack.setCurrentWidget(panel)
-            self._side_panel_title.setText(panel.windowTitle())
-            self._side_panel_container.show()
-
-        if panel_name == "ai" and self._active_side_panel == "ai":
-            self._refresh_ai_provider()
-            view = self._current_view()
-            self.ai_dock.set_context_key(self._ai_context_key(view))
-        elif panel_name == "downloads" and self._active_side_panel == "downloads":
-            self.downloads_dock.refresh()
-
-        self._sync_devtools_page()
-
-        if self.performance_panel is not None:
-            if (
-                self._active_side_panel == "performance"
-                and self._side_panel_container.isVisible()
-            ):
-                self.performance_panel.start_monitoring()
-            else:
-                self.performance_panel.stop_monitoring()
-
-        for name, (_widget, action) in panels.items():
-            if action is not None:
-                action.setChecked(name == self._active_side_panel)
-
-    def _close_side_panel(self, *_):
-        self._side_panel_container.hide()
-        self._side_panel_title.clear()
-        self._active_side_panel = None
-        self._sync_devtools_page()
-        if self.performance_panel is not None:
-            self.performance_panel.stop_monitoring()
-        for action_name in (
-            "notes_action",
-            "video_download_action",
-            "downloads_action",
-            "inspect_action",
-            "devtools_action",
-            "ai_action",
-            "performance_action",
-        ):
-            action = getattr(self, action_name, None)
-            if action is not None:
-                action.setChecked(False)
 
     def _ai_context_key(self, view) -> str:
         return str(id(view)) if view is not None else "no-page"
@@ -2544,6 +1755,10 @@ class BrowserWindow(QMainWindow):
         return answer == QMessageBox.StandardButton.Yes
 
     def _handle_ai_request(self, question: str, summarize: bool, history):
+        view = self._current_view()
+        if view is None:
+            self.ai_dock.show_error(TEXTO_UI["ai_no_page"])
+            return
         if self._active_ai_worker and self._active_ai_worker.isRunning():
             log.aviso(
                 "BrowserWindow",
@@ -2587,8 +1802,7 @@ class BrowserWindow(QMainWindow):
             self.ai_dock.show_error(TEXTO_UI["ai_ready"])
             return
 
-        view = self._current_view()
-        page = view.page() if view else None
+        page = view.page()
         if page is None:
             log.aviso(
                 "BrowserWindow",
@@ -2749,7 +1963,9 @@ class BrowserWindow(QMainWindow):
             log.aviso("BrowserWindow", "_on_ai_answer", "resposta descartada: janela fechando")
             return
         if not any(
-            self._ai_context_key(self.tabs.widget(index)) == worker.ai_context_key
+            isinstance(self.tabs.widget(index), QWebEngineView)
+            and self._ai_context_key(self.tabs.widget(index))
+            == worker.ai_context_key
             for index in range(self.tabs.count())
         ):
             log.aviso("BrowserWindow", "_on_ai_answer", "resposta descartada: aba de origem fechada")
@@ -2798,60 +2014,8 @@ class BrowserWindow(QMainWindow):
         else:
             self.ai_dock.set_busy(False, TEXTO_UI["ai_cancelled"])
 
-    def _on_inspector_visibility_changed(self, visible: bool):
-        if not visible:
-            return
-        view = self._current_view()
-        self.inspector_dock.set_page(view.page() if view else None)
-        self.inspector_dock.refresh_dom()
-
-    def toggle_video_download_dock(self, *_):
-        self._toggle_side_panel("video")
-
-    def toggle_browser_downloads(self, *_):
-        self._toggle_side_panel("downloads")
-
-    def _on_video_download_visibility_changed(self, visible: bool):
-        if not visible or not self.video_download_dock:
-            return
-        view = self._current_view()
-        url = view.url().toString() if view else ""
-        self.video_download_dock.set_source_url(url)
-        self.video_download_dock.analyze_link()
-
-    def _build_capture_menu(self):
-        self.capture_menu = QMenu(TEXTO_UI["capture_menu"], self)
-        self.visible_capture_action = self._make_action(
-            TEXTO_UI["capture_visible"],
-            ico_captura(),
-            self.capture_visible_page,
-        )
-        self.full_page_capture_action = self._make_action(
-            TEXTO_UI["capture_full_page"],
-            ico_imagem(),
-            self.capture_full_page,
-        )
-        self.pdf_capture_action = self._make_action(
-            TEXTO_UI["capture_pdf"],
-            ico_pdf(),
-            self.save_page_as_pdf,
-        )
-        self.capture_menu.addAction(self.visible_capture_action)
-        self.capture_menu.addAction(self.full_page_capture_action)
-        self.capture_menu.addAction(self.pdf_capture_action)
-        self.capture_button.setMenu(self.capture_menu)
-
-        self.capture_shortcut_action = QAction(TEXTO_UI["capture_menu"], self)
-        self.capture_shortcut_action.setShortcut(
-            QKeySequence(atalho("captura"))
-        )
-        self.capture_shortcut_action.setShortcutContext(
-            Qt.ShortcutContext.WindowShortcut
-        )
-        self.capture_shortcut_action.triggered.connect(self.show_capture_menu)
-        self.addAction(self.capture_shortcut_action)
-
     def _build_settings_menu(self):
+        self.main_menu.addSeparator()
         settings_menu = self.main_menu.addMenu(
             ico_config(),
             TEXTO_UI["settings_menu"],
@@ -2905,7 +2069,9 @@ class BrowserWindow(QMainWindow):
             TEXTO_UI["theme_customize"],
             ico_tema(),
             self.open_custom_theme_editor,
+            atalho("tema_personalizado"),
         )
+        self.addAction(self.theme_customize_action)
         self.theme_menu.addAction(self.theme_customize_action)
 
         settings_menu.addSeparator()
@@ -2928,15 +2094,12 @@ class BrowserWindow(QMainWindow):
             self.search_engine_menu.addAction(action)
             self.search_engine_actions[engine_id] = action
 
-        settings_menu.addSeparator()
-        settings_menu.addSection(TEXTO_UI["blocker_name"])
-
         self.blocker_settings_action = self._make_action(
             TEXTO_UI["blocker_settings"],
             ico_bloqueador(),
             self.open_blocker_settings,
         )
-        settings_menu.addAction(self.blocker_settings_action)
+        self.security_performance_menu.addAction(self.blocker_settings_action)
 
         self.blocker_toggle_site_action = self._make_action(
             TEXTO_UI["blocker_toggle_site"],
@@ -2944,7 +2107,7 @@ class BrowserWindow(QMainWindow):
             self.toggle_site_blocker,
             atalho("bloqueador_site"),
         )
-        settings_menu.addAction(self.blocker_toggle_site_action)
+        self.security_performance_menu.addAction(self.blocker_toggle_site_action)
 
         self.open_app_data_action = self._make_action(
             TEXTO_UI["open_app_data"],
@@ -2957,22 +2120,43 @@ class BrowserWindow(QMainWindow):
             ico_limpar(),
             self.clear_browser_cache,
         )
-        settings_menu.addAction(self.open_app_data_action)
-        settings_menu.addAction(self.clear_cache_action)
 
-        self._add_sidebar_action_button(self.open_app_data_action)
-        self._add_sidebar_action_button(self.clear_cache_action)
+        self.addAction(self.open_app_data_action)
 
     def open_app_data(self, *_):
-        opened = QDesktopServices.openUrl(
-            QUrl.fromLocalFile(appdata.pasta_raiz)
+        if self.private:
+            self.statusBar().showMessage(
+                TEXTO_UI["app_data_private_unavailable"],
+                STATUS_CURTO_MS,
+            )
+            return
+
+        for index in range(self.tabs.count()):
+            widget = self.tabs.widget(index)
+            if (
+                isinstance(widget, ExplorerTab)
+                and widget.inspection_mode
+                and widget.fixed_root is not None
+                and os.path.normcase(os.path.realpath(widget.fixed_root))
+                == os.path.normcase(os.path.realpath(appdata.pasta_raiz))
+            ):
+                self.tabs.setCurrentIndex(index)
+                return
+
+        explorer = self._new_explorer_tab(
+            inspection_mode=True,
+            fixed_root=appdata.pasta_raiz,
         )
-        message = (
-            TEXTO_UI["app_data_opened"]
-            if opened
-            else TEXTO_UI["app_data_open_error"]
+        self._add_local_tab(
+            explorer,
+            TEXTO_UI["open_app_data"],
+            appdata.pasta_raiz,
+            ico_abrir(),
         )
-        self.statusBar().showMessage(message, STATUS_CURTO_MS)
+        self.statusBar().showMessage(
+            TEXTO_UI["app_data_opened"],
+            STATUS_CURTO_MS,
+        )
 
     def clear_browser_cache(self, *_):
         profiles = {id(self.controller.profile): self.controller.profile}
@@ -2998,188 +2182,30 @@ class BrowserWindow(QMainWindow):
             STATUS_CURTO_MS,
         )
 
-    def show_capture_menu(self, *_):
-        self.capture_menu.popup(
-            self.capture_button.mapToGlobal(
-                self.capture_button.rect().bottomLeft()
-            )
-        )
-
-    def _default_capture_path(self, kind: str, extension: str) -> str:
-        pictures = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.PicturesLocation
-        )
-        base = Path(pictures) if pictures else Path.home() / "Pictures"
-        folder = base / CAPTURA_PASTA
-        folder.mkdir(parents=True, exist_ok=True)
-        return str(folder / capture_filename(kind, extension=extension))
-
-    def _choose_capture_path(
-        self,
-        *,
-        kind: str,
-        extension: str,
-        title: str,
-        file_filter: str,
-    ) -> str | None:
-        try:
-            default_path = self._default_capture_path(kind, extension)
-        except OSError as error:
-            self._show_capture_error(str(error))
-            return None
-        target, _selected_filter = QFileDialog.getSaveFileName(
-            self,
-            title,
-            default_path,
-            file_filter,
-        )
-        if not target:
-            return None
-        target_path = Path(target)
-        expected_suffix = f".{extension.lower().lstrip('.')}"
-        if target_path.suffix.lower() != expected_suffix:
-            target_path = target_path.with_suffix(expected_suffix)
-        return str(target_path)
-
-    def _capture_is_available(self) -> bool:
-        if not self.capture_manager.busy:
-            return True
-        self.statusBar().showMessage(
-            TEXTO_UI["capture_busy"],
-            STATUS_CURTO_MS,
-        )
-        return False
-
-    def capture_visible_page(self, *_):
-        if not self._capture_is_available():
-            return
-        view = self._current_view()
-        if view is None:
-            return
-        path = self._choose_capture_path(
-            kind="parte_visivel",
-            extension="png",
-            title=TEXTO_UI["capture_save_title"],
-            file_filter=TEXTO_UI["capture_image_filter"],
-        )
-        if not path:
-            return
-        try:
-            self.capture_manager.capture_visible(view, path)
-        except (OSError, RuntimeError, ValueError) as error:
-            self._show_capture_error(str(error))
-            return
-        self.statusBar().showMessage(
-            TEXTO_UI["capture_started"],
-            STATUS_DOWNLOAD_INICIO_MS,
-        )
-
-    def capture_full_page(self, *_):
-        if not self._capture_is_available():
-            return
-        view = self._current_view()
-        if view is None:
-            return
-        path = self._choose_capture_path(
-            kind="pagina_inteira",
-            extension="png",
-            title=TEXTO_UI["capture_save_title"],
-            file_filter=TEXTO_UI["capture_image_filter"],
-        )
-        if not path:
-            return
-        try:
-            self.capture_manager.capture_full_page(
-                view,
-                path,
-                max_width=CAPTURA_LARGURA_MAXIMA_PX,
-                max_height=CAPTURA_ALTURA_MAXIMA_PX,
-                settle_interval_ms=CAPTURA_INTERVALO_REPINTURA_MS,
-            )
-        except (OSError, RuntimeError, ValueError) as error:
-            self._show_capture_error(str(error))
-            return
-        self.statusBar().showMessage(
-            TEXTO_UI["capture_started"],
-            STATUS_DOWNLOAD_INICIO_MS,
-        )
-
-    def save_page_as_pdf(self, *_):
-        if not self._capture_is_available():
-            return
-        view = self._current_view()
-        if view is None:
-            return
-        path = self._choose_capture_path(
-            kind="pagina",
-            extension="pdf",
-            title=TEXTO_UI["capture_pdf_save_title"],
-            file_filter=TEXTO_UI["capture_pdf_filter"],
-        )
-        if not path:
-            return
-        try:
-            self.capture_manager.print_pdf(view.page(), path)
-        except (OSError, RuntimeError, ValueError) as error:
-            self._show_capture_error(str(error))
-            return
-        self.statusBar().showMessage(
-            TEXTO_UI["capture_started"],
-            STATUS_DOWNLOAD_INICIO_MS,
-        )
-
-    def _show_capture_saved(self, path: str, clipped: bool):
-        message = TEXTO_UI["capture_done_message"].format(path=path)
-        if clipped:
-            message += f"\n\n{TEXTO_UI['capture_truncated_warning']}"
-        self._show_capture_result(message, path)
-
-    def _show_pdf_saved(self, path: str):
-        self._show_capture_result(
-            TEXTO_UI["capture_pdf_done_message"].format(path=path),
-            path,
-        )
-
-    def _show_capture_result(self, message: str, path: str):
-        dialog = criar_popup(
-            TEXTO_UI["capture_done_title"],
-            message,
-            self,
-            botoes=QMessageBox.StandardButton.NoButton,
-        )
-        open_folder_button = dialog.addButton(
-            TEXTO_UI["capture_open_folder"],
-            QMessageBox.ButtonRole.AcceptRole,
-        )
-        dialog.addButton(
-            TEXTO_UI["capture_close"],
-            QMessageBox.ButtonRole.RejectRole,
-        )
-        dialog.exec()
-        if dialog.clickedButton() is open_folder_button:
-            QDesktopServices.openUrl(
-                QUrl.fromLocalFile(str(Path(path).parent))
-            )
-
-    def _show_capture_error(self, error: str):
-        popup_aviso(
-            TEXTO_UI["capture_error_title"],
-            TEXTO_UI["capture_error_message"].format(error=error),
-            self,
-        )
-
-    def _build_corner_button(self):
+    def _build_new_tab_button(self):
         button = QToolButton(self)
         button.setObjectName("newTabButton")
-        button.setIcon(ico_nova_aba())
-        button.setIconSize(QSize(14, 14))
-        button.setFixedSize(QSize(24, 24))
+        _set_button_icon_or_fallback(button, ico_nova_aba(), "+")
+        font_size = self._theme["font_size_px"]
+        size = max(24, font_size + 10)
+        icon_size = min(22, max(14, font_size + 1))
+        button.setIconSize(QSize(icon_size, icon_size))
+        button.setFixedSize(QSize(size, size))
+        button.setAutoRepeat(False)
         button.setToolTip(TEXTO_UI["new_tab_tooltip"])
         button.setAccessibleName(TEXTO_UI["new_tab_tooltip"])
-        button.clicked.connect(self.new_home_tab)
+        button.clicked.connect(self.new_tab)
         return button
 
     def apply_theme(self):
+        self._theme = obter_tema(
+            self.controller.theme_id,
+            custom_theme=self.controller.custom_theme,
+        )
+        footer_height = max(
+            self._theme["footer_height_px"],
+            self._theme["font_size_px"] + 12,
+        )
         self.setStyleSheet(
             stylesheet_for_theme(
                 self.controller.theme_id,
@@ -3187,11 +2213,22 @@ class BrowserWindow(QMainWindow):
                 custom_theme=self.controller.custom_theme,
             )
         )
+        self._update_side_panel_tabs_inset()
+        if hasattr(self, "sidebar_toolbar"):
+            self.sidebar_toolbar.apply_metrics(
+                self._theme["sidebar_icon_size_px"]
+            )
+        if hasattr(self, "_status_bar"):
+            self._status_bar.setFixedHeight(footer_height)
+        if hasattr(self, "favorites_status_bar"):
+            self.favorites_status_bar.apply_metrics(
+                self._theme["font_size_px"],
+                footer_height,
+            )
         icon_factories = (
             ("back_action", ico_voltar),
             ("forward_action", ico_avancar),
             ("reload_action", ico_atualizar),
-            ("home_action", ico_home),
             ("history_action", ico_historico),
             ("favorites_action", ico_favoritos),
             ("password_manager_action", ico_info),
@@ -3246,16 +2283,27 @@ class BrowserWindow(QMainWindow):
         self._update_window_controls()
         if hasattr(self, "favorites_status_bar"):
             self.favorites_status_bar.refresh()
-        corner_button = self.tabs.cornerWidget()
-        if isinstance(corner_button, QToolButton):
-            corner_button.setIcon(ico_nova_aba())
+        new_tab_button = self.tabs.new_tab_button()
+        if isinstance(new_tab_button, QToolButton):
+            font_size = self._theme["font_size_px"]
+            size = max(24, font_size + 10)
+            icon_size = min(22, max(14, font_size + 1))
+            new_tab_button.setIconSize(QSize(icon_size, icon_size))
+            new_tab_button.setFixedSize(QSize(size, size))
+            _set_button_icon_or_fallback(
+                new_tab_button,
+                ico_nova_aba(),
+                "+",
+            )
         tab_bar = self.tabs.tabBar()
+        tab_bar.updateGeometry()
         for index in range(self.tabs.count()):
             close_button = tab_bar.tabButton(
                 index,
                 tab_bar.ButtonPosition.RightSide,
             )
             if isinstance(close_button, TabCloseButton):
+                close_button.apply_metrics(self._theme["font_size_px"])
                 close_button.refresh_icon()
         self._update_location_and_favorite()
         self.update_theme_actions()
@@ -3270,8 +2318,8 @@ class BrowserWindow(QMainWindow):
             custom_theme=self.controller.custom_theme,
         )
         dialog = CustomThemeDialog(current_theme, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.controller.set_custom_theme(dialog.custom_theme())
+        dialog.saveRequested.connect(self.controller.set_custom_theme)
+        dialog.exec()
 
     def update_search_engine_actions(self):
         selected = self.controller.search_engine
@@ -3307,6 +2355,7 @@ class BrowserWindow(QMainWindow):
         *,
         url: str | None = None,
         home: bool = False,
+        blank: bool = False,
         select: bool = True,
         restored: bool = False,
         popup: bool = False,
@@ -3357,10 +2406,17 @@ class BrowserWindow(QMainWindow):
         if self.profile_lease:
             self.profile_lease.register_view(view)
 
-        label = TEXTO_UI["home_title"] if home else TEXTO_UI["new_tab"]
+        label = (
+            TEXTO_UI["home_title"]
+            if home and not blank
+            else TEXTO_UI["new_tab"]
+        )
         index = self.tabs.addTab(view, label)
         bar = self.tabs.tabBar()
-        close_button = TabCloseButton(bar)
+        close_button = TabCloseButton(
+            bar,
+            font_size_px=self._theme["font_size_px"],
+        )
         close_button.setToolTip(TEXTO_UI["close_tab"])
         close_button.setAccessibleName(TEXTO_UI["close_tab"])
         close_button.clicked.connect(
@@ -3373,6 +2429,7 @@ class BrowserWindow(QMainWindow):
             bar.ButtonPosition.RightSide,
             close_button,
         )
+        close_button.show()
         self.tabs.setTabToolTip(index, label)
 
         if select:
@@ -3381,6 +2438,8 @@ class BrowserWindow(QMainWindow):
             view.setUrl(QUrl(url))
         elif home:
             view.setUrl(QUrl.fromLocalFile(home_path))
+        elif blank:
+            view.setUrl(QUrl("about:blank"))
         elif not popup:
             view.setUrl(QUrl.fromLocalFile(home_path))
             page.is_start_page_active = True
@@ -3398,11 +2457,99 @@ class BrowserWindow(QMainWindow):
                 return index
         return -1
 
-    def new_home_tab(self, *_):
-        self.controller.refresh_home_pages()
+    def new_tab(self, *_):
         self._create_tab(home=True, select=True)
         if not self._initializing and not self.private:
             self.controller.notify_session_change()
+
+    def open_explorer(self, *_):
+        """Seleciona a aba Explorador existente ou cria uma única instância."""
+        for index in range(self.tabs.count()):
+            widget = self.tabs.widget(index)
+            if isinstance(widget, ExplorerTab) and not widget.inspection_mode:
+                self.tabs.setCurrentIndex(index)
+                return
+
+        explorer = self._new_explorer_tab()
+        self._add_local_tab(
+            explorer,
+            TEXTO_UI["explorer_action"],
+            TEXTO_UI["explorer_action"],
+            ico_ferramentas(),
+        )
+
+    def _new_explorer_tab(
+        self,
+        *,
+        inspection_mode: bool = False,
+        fixed_root: str | None = None,
+    ) -> ExplorerTab:
+        limits = ExplorerLimits(
+            max_items=EXPLORER_MAX_ITEMS,
+            max_seconds=EXPLORER_MAX_SECONDS,
+            max_depth=EXPLORER_MAX_DEPTH,
+            max_lines=EXPLORER_MAX_LINES,
+            max_chars=EXPLORER_MAX_CHARS,
+        )
+        settings_store = ExplorerSettingsStore(
+            appdata.pasta_config,
+            EXPLORER_DEFAULT_IGNORED_NAMES,
+        )
+        explorer = ExplorerTab(
+            settings_store,
+            EXPLORER_DEFAULT_IGNORED_NAMES,
+            limits,
+            TEXTO_UI,
+            self.tabs,
+            inspection_mode=inspection_mode,
+            fixed_root=fixed_root,
+        )
+        explorer.file_open_requested.connect(self._open_file_preview)
+        return explorer
+
+    def _add_local_tab(
+        self,
+        widget: QWidget,
+        title: str,
+        tooltip: str,
+        icon: QIcon,
+    ):
+        index = self.tabs.addTab(widget, self._limited_tab_title(title))
+        self.tabs.setTabIcon(index, icon)
+        self.tabs.setTabToolTip(index, tooltip)
+        bar = self.tabs.tabBar()
+        close_button = TabCloseButton(
+            bar,
+            font_size_px=self._theme["font_size_px"],
+        )
+        close_button.setToolTip(TEXTO_UI["close_tab"])
+        close_button.setAccessibleName(TEXTO_UI["close_tab"])
+        close_button.clicked.connect(
+            lambda _checked=False, tab=widget: self.close_tab(
+                self.tabs.indexOf(tab)
+            )
+        )
+        bar.setTabButton(
+            index,
+            bar.ButtonPosition.RightSide,
+            close_button,
+        )
+        close_button.show()
+        self.tabs.setCurrentIndex(index)
+
+    def _open_file_preview(self, root_path: str, relative_path: str):
+        preview = FilePreviewTab(
+            root_path,
+            relative_path,
+            TEXTO_UI,
+            self.tabs,
+        )
+        self._add_local_tab(
+            preview,
+            Path(relative_path).name,
+            relative_path,
+            ico_abrir(),
+        )
 
     def _queue_home_search(
         self,
@@ -3509,6 +2656,14 @@ class BrowserWindow(QMainWindow):
         self.controller.storage.record_search_query(query)
 
     def _on_address_text_edited(self, text: str):
+        if self._current_view() is None:
+            self.search_suggestion_service.cancel("address")
+            self._address_suggestion_query = ""
+            self._address_suggestion_targets.clear()
+            self._address_suggestion_queries.clear()
+            self._address_suggestion_model.setStringList([])
+            self.address_completer.popup().hide()
+            return
         query = (text or "").strip()
         self._address_suggestion_query = query
         self._update_address_suggestions(query)
@@ -3686,12 +2841,24 @@ class BrowserWindow(QMainWindow):
     def close_tab(self, index: int):
         if index < 0 or index >= self.tabs.count():
             return
-        view = self.tabs.widget(index)
+        widget = self.tabs.widget(index)
+        if isinstance(widget, (ExplorerTab, FilePreviewTab)):
+            widget.shutdown()
+            if self.tabs.count() == 1:
+                self.close()
+                return
+            self.tabs.removeTab(index)
+            widget.deleteLater()
+            if not self.private:
+                self.controller.notify_session_change()
+            return
+
+        view = widget
         if not isinstance(view, QWebEngineView):
             return
         if self.tabs.count() == 1:
-            self._create_tab(home=True, select=True)
-            index = self.tabs.indexOf(view)
+            self.close()
+            return
         page = view.page()
         if isinstance(page, BrowserPage):
             self.controller.cancel_restore_page(page)
@@ -3742,12 +2909,71 @@ class BrowserWindow(QMainWindow):
     def _on_current_changed(self, _index: int):
         self._update_location_and_favorite()
         self._update_navigation_actions()
+        self._update_page_action_state()
         self._sync_inspector_page()
         self._sync_devtools_page()
         if hasattr(self, "ai_dock"):
             self.ai_dock.set_context_key(
                 self._ai_context_key(self._current_view())
             )
+
+    def _update_page_action_state(self):
+        view = self._current_view()
+        has_page = view is not None
+        url = view.url().toString() if view else ""
+        is_http = has_page and is_http_url(url)
+
+        if not has_page:
+            if getattr(self, "_active_side_panel", None) in {
+                "notes",
+                "video",
+                "inspector",
+                "devtools",
+                "ai",
+            }:
+                self._close_side_panel()
+            find_bar = getattr(self, "find_bar", None)
+            if find_bar is not None and find_bar.isVisible():
+                self.hide_find_bar()
+
+        action_states = {
+            "reload_action": has_page,
+            "favorite_action": is_http,
+            "password_manager_action": is_http and not self.private,
+            "site_security_action": is_http,
+            "site_privacy_action": is_http,
+            "find_action": has_page,
+            "zoom_in_action": has_page,
+            "zoom_out_action": has_page,
+            "zoom_reset_action": has_page,
+            "media_diagnostic_action": has_page,
+            "gpu_diagnostic_action": has_page,
+            "notes_action": is_http and not self.private,
+            "video_download_action": is_http,
+            "inspect_action": has_page,
+            "devtools_action": has_page,
+            "ai_action": has_page,
+            "visible_capture_action": has_page,
+            "full_page_capture_action": has_page,
+            "pdf_capture_action": has_page,
+            "capture_shortcut_action": has_page,
+        }
+        for name, enabled in action_states.items():
+            action = getattr(self, name, None)
+            if action is not None:
+                action.setEnabled(bool(enabled))
+
+        button_states = {
+            "capture_button": has_page,
+            "video_download_button": is_http,
+            "notes_button": is_http and not self.private,
+            "ai_button": has_page,
+            "translate_button": has_page,
+        }
+        for name, enabled in button_states.items():
+            button = getattr(self, name, None)
+            if button is not None:
+                button.setEnabled(bool(enabled))
 
     def _sync_inspector_page(self):
         inspector = getattr(self, "inspector_dock", None)
@@ -3898,6 +3124,21 @@ class BrowserWindow(QMainWindow):
     def _update_location_and_favorite(self):
         view = self._current_view()
         if not view:
+            self.address_bar.clear()
+            self.search_suggestion_service.cancel("address")
+            self._address_suggestion_query = ""
+            self._address_suggestion_targets.clear()
+            self._address_suggestion_queries.clear()
+            self._address_suggestion_model.setStringList([])
+            self.address_completer.popup().hide()
+            self.favorite_button.setEnabled(False)
+            self.favorite_button.setIcon(ico_favorito_vazio())
+            self.favorite_button.setToolTip(TEXTO_UI["favorite_add"])
+            self._update_blocker_button("")
+            if self.notes_dock:
+                self.notes_dock.set_site("")
+            if self.video_download_dock:
+                self.video_download_dock.set_source_url("")
             return
         url = view.url().toString()
         is_web = is_http_url(url)
@@ -4153,9 +3394,70 @@ class BrowserWindow(QMainWindow):
         )
 
     def open_gpu_diagnostic(self, *_):
+        view = self._current_view()
+        if view is None:
+            self._show_gpu_diagnostic_report(None)
+            return
+        view.page().runJavaScript(
+            GRAPHICS_CAPABILITY_SCRIPT,
+            self._show_gpu_diagnostic_report,
+        )
+
+    def _show_gpu_diagnostic_report(self, page_capabilities):
+        snapshot = graphics_diagnostic_snapshot(page_capabilities)
+        state_key = {
+            "renderer_reported": "performance_gpu_state_renderer_reported",
+            "software_renderer": "performance_gpu_state_software_renderer",
+            "webgl_available": "performance_gpu_state_webgl_available",
+            "qt_backend_unsupported": (
+                "performance_gpu_state_qt_backend_unsupported"
+            ),
+            "qt_device_reported": "performance_gpu_state_qt_device_reported",
+            "inconclusive": "performance_gpu_state_inconclusive",
+        }.get(snapshot["state"], "performance_gpu_state_inconclusive")
+        page = snapshot["page"]
+        webgl = (
+            TEXTO_UI["gpu_report_value_available"]
+            if page["webgl_available"] is True
+            else TEXTO_UI["gpu_report_value_unavailable"]
+            if page["webgl_available"] is False
+            else TEXTO_UI["gpu_report_value_inconclusive"]
+        )
+        if page["webgl_version"] and page["webgl_available"] is True:
+            webgl = f"{webgl} ({page['webgl_version']})"
+        webgpu = (
+            TEXTO_UI["gpu_report_value_available"]
+            if page["webgpu_available"] is True
+            else TEXTO_UI["gpu_report_value_unavailable"]
+            if page["webgpu_available"] is False
+            else TEXTO_UI["gpu_report_value_inconclusive"]
+        )
+        lines = [
+            TEXTO_UI["gpu_report_state"].format(
+                state=TEXTO_UI[state_key]
+            ),
+            TEXTO_UI["gpu_report_webgl"].format(value=webgl),
+            TEXTO_UI["gpu_report_webgpu"].format(value=webgpu),
+        ]
+        if page["vendor"]:
+            lines.append(
+                TEXTO_UI["gpu_report_vendor"].format(value=page["vendor"])
+            )
+        if page["renderer"]:
+            lines.append(
+                TEXTO_UI["gpu_report_renderer"].format(
+                    value=page["renderer"]
+                )
+            )
+        if snapshot["details"]:
+            lines.append(TEXTO_UI["gpu_report_qt_title"])
+            lines.extend(f"• {line}" for line in snapshot["details"])
+        else:
+            lines.append(TEXTO_UI["gpu_report_qt_empty"])
+        lines.append(TEXTO_UI["gpu_report_limits"])
         popup_info(
             TEXTO_UI["gpu_diagnostic"],
-            TEXTO_UI["gpu_diagnostic_unavailable"],
+            "\n".join(lines),
             self,
         )
 
@@ -4168,6 +3470,8 @@ class BrowserWindow(QMainWindow):
         )
 
     def show_find_bar(self, *_):
+        if self._current_view() is None:
+            return
         self.find_bar.show()
         self.find_input.setFocus(Qt.FocusReason.ShortcutFocusReason)
         self.find_input.selectAll()
@@ -4216,10 +3520,9 @@ class BrowserWindow(QMainWindow):
             self._fullscreen_active = True
             self._window_state_before_fullscreen = self.windowState()
             self.toolbar.hide()
-            self.window_controls_toolbar.hide()
             self.tabs.tabBar().hide()
-            self.statusBar().hide()
-            self.favorites_status_bar.hide()
+            self._update_side_panel_tabs_inset()
+            self._footer_bar.hide()
             self.showFullScreen()
             return
         request.accept()
@@ -4229,10 +3532,9 @@ class BrowserWindow(QMainWindow):
         else:
             self.showNormal()
         self.toolbar.show()
-        self.window_controls_toolbar.show()
         self.tabs.tabBar().show()
-        self.statusBar().show()
-        self.favorites_status_bar.show()
+        self._update_side_panel_tabs_inset()
+        self._footer_bar.show()
 
     def changeEvent(self, event):
         super().changeEvent(event)
@@ -4256,7 +3558,11 @@ class BrowserWindow(QMainWindow):
             self.notes_dock.save_current_note()
         self.controller.unregister_window(self)
         for index in range(self.tabs.count() - 1, -1, -1):
-            view = self.tabs.widget(index)
+            widget = self.tabs.widget(index)
+            if isinstance(widget, (ExplorerTab, FilePreviewTab)):
+                widget.shutdown()
+                continue
+            view = widget
             if isinstance(view, QWebEngineView):
                 page = view.page()
                 if isinstance(page, BrowserPage):

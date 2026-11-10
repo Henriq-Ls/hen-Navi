@@ -1,7 +1,9 @@
 """Medições locais de desempenho sem registrar endereços ou conteúdo de páginas."""
 
 from collections import defaultdict, deque
+import ipaddress
 import os
+import socket
 from time import perf_counter
 
 
@@ -11,6 +13,10 @@ _NAVIGATION_SAMPLES: dict[str, deque] = defaultdict(lambda: deque(maxlen=30))
 
 class ProcessMetricsUnavailable(RuntimeError):
     """Indica que a amostragem de processos não pode ser iniciada."""
+
+
+class NetworkMetricsUnavailable(RuntimeError):
+    """Indica que os contadores locais de rede não estão disponíveis."""
 
 
 def elapsed_ms(started_at: float, finished_at: float | None = None) -> int:
@@ -97,6 +103,11 @@ def reset_performance_metrics() -> None:
     _NAVIGATION_SAMPLES.clear()
 
 
+def reset_navigation_samples() -> None:
+    """Reinicia apenas a amostra de navegação desta sessão."""
+    _NAVIGATION_SAMPLES.clear()
+
+
 class ProcessTreeSampler:
     """Mede CPU/RAM do app e dos processos filhos do QtWebEngine."""
 
@@ -122,16 +133,17 @@ class ProcessTreeSampler:
 
     def sample(self) -> dict:
         """Retorna CPU do intervalo anterior e memória/processos atuais."""
+        process_errors = (OSError, getattr(self._psutil, "Error", OSError))
         try:
             root = self._psutil.Process(self.root_pid)
-        except self._psutil.Error as error:
+        except process_errors as error:
             raise ProcessMetricsUnavailable(
                 "processo raiz indisponível para medição"
             ) from error
         try:
             processes = [root, *root.children(recursive=True)]
             partial = False
-        except self._psutil.Error:
+        except process_errors:
             processes = [root]
             partial = True
 
@@ -155,7 +167,7 @@ class ProcessTreeSampler:
                     previous_total = previous[0] + previous[1]
                     current_total = user_seconds + system_seconds
                     cpu_delta_seconds += max(0.0, current_total - previous_total)
-            except self._psutil.Error:
+            except process_errors:
                 partial = True
 
         sampled_at = self._clock()
@@ -189,3 +201,120 @@ class ProcessTreeSampler:
             "process_count": process_count,
             "partial": partial,
         }
+
+
+class NetworkMetricsSampler:
+    """Lê IPs locais e contadores de tráfego do sistema sem fazer requisições."""
+
+    def __init__(
+        self,
+        *,
+        psutil_module=None,
+        clock=perf_counter,
+    ):
+        if psutil_module is None:
+            try:
+                import psutil as psutil_module
+            except ImportError as error:
+                raise NetworkMetricsUnavailable(
+                    "psutil não está instalado"
+                ) from error
+        self._psutil = psutil_module
+        self._clock = clock
+        self._previous_counters: tuple[int, int] | None = None
+        self._previous_sample_at: float | None = None
+        self._session_start_counters: tuple[int, int] | None = None
+
+    def sample(self) -> dict:
+        """Retorna endereços locais e tráfego agregado desde o início da amostra."""
+        psutil_error = getattr(self._psutil, "Error", OSError)
+        try:
+            counters = self._psutil.net_io_counters()
+            interfaces = self._psutil.net_if_addrs()
+        except (AttributeError, OSError, TypeError, psutil_error) as error:
+            raise NetworkMetricsUnavailable(
+                "contadores de rede indisponíveis"
+            ) from error
+        if counters is None:
+            raise NetworkMetricsUnavailable(
+                "contadores de rede indisponíveis"
+            )
+
+        try:
+            received = max(0, int(counters.bytes_recv))
+            sent = max(0, int(counters.bytes_sent))
+        except (AttributeError, TypeError, ValueError) as error:
+            raise NetworkMetricsUnavailable(
+                "contadores de rede inválidos"
+            ) from error
+
+        current_counters = (received, sent)
+        sampled_at = float(self._clock())
+        elapsed_seconds = (
+            sampled_at - self._previous_sample_at
+            if self._previous_sample_at is not None
+            else 0.0
+        )
+
+        download_bytes_per_second = None
+        upload_bytes_per_second = None
+        downloaded_delta = 0
+        uploaded_delta = 0
+        if self._previous_counters is not None:
+            downloaded_delta = max(
+                0,
+                received - self._previous_counters[0],
+            )
+            uploaded_delta = max(
+                0,
+                sent - self._previous_counters[1],
+            )
+            if elapsed_seconds > 0:
+                download_bytes_per_second = round(
+                    downloaded_delta / elapsed_seconds
+                )
+                upload_bytes_per_second = round(
+                    uploaded_delta / elapsed_seconds
+                )
+
+        if self._session_start_counters is None:
+            self._session_start_counters = current_counters
+
+        self._previous_counters = current_counters
+        self._previous_sample_at = sampled_at
+        return {
+            "network_sampled": True,
+            "network_ip_addresses": self._local_ip_addresses(interfaces or {}),
+            "network_download_bytes_per_second": download_bytes_per_second,
+            "network_upload_bytes_per_second": upload_bytes_per_second,
+            "network_downloaded_bytes": max(
+                0,
+                received - self._session_start_counters[0],
+            ),
+            "network_uploaded_bytes": max(
+                0,
+                sent - self._session_start_counters[1],
+            ),
+        }
+
+    @staticmethod
+    def _local_ip_addresses(interfaces: dict) -> tuple[str, ...]:
+        addresses = set()
+        for interface_addresses in interfaces.values():
+            for address in interface_addresses:
+                if address.family not in (socket.AF_INET, socket.AF_INET6):
+                    continue
+                value = str(address.address or "").split("%", 1)[0]
+                try:
+                    ip = ipaddress.ip_address(value)
+                except ValueError:
+                    continue
+                if (
+                    ip.is_loopback
+                    or ip.is_link_local
+                    or ip.is_unspecified
+                    or ip.is_multicast
+                ):
+                    continue
+                addresses.add(str(ip))
+        return tuple(sorted(addresses))

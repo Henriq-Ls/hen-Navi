@@ -67,7 +67,7 @@ Solução / workaround: Adicionado diagnóstico local no menu para consultar
 Verificação: Testes da função de diagnóstico passaram; reprodução real no
   Windows ainda não verificada.
 
-[UPLOAD-SELETOR] STATUS: CORREÇÃO APLICADA; VALIDAR NO WINDOWS
+[UPLOAD-SELETOR] STATUS: VALIDADO NO WINDOWS
 Data descoberta: 2026-11-07
 Descrição: Ao iniciar um envio em diferentes sites, o hen-Nave trava antes de
   permitir a escolha do arquivo ou da pasta.
@@ -79,9 +79,8 @@ Causa suspeita: O fluxo anterior delegava ao seletor nativo do QtWebEngine. O
 Solução / workaround: Substituído o seletor nativo por QFileDialog Qt não nativo,
   modal à janela do hen-Nave, com tratamento explícito para arquivo, seleção
   múltipla e pastas. Cancelar retorna uma seleção vazia.
-Verificação: Testes de integração estática e compileall passaram; o travamento
-  ainda precisa ser validado no executável Windows porque PySide6 não está
-  instalado neste ambiente.
+Verificação: Testes de integração estática e compileall passaram. O usuário
+  confirmou que realizou um upload no Windows sem o travamento descrito.
 Atualização: A interface agora traduz os controles do seletor, ordena os itens
   alfabeticamente e mostra atalhos para Área de Trabalho e Downloads. O log mais
   recente também contém `stat hen-Navi/.: not a directory` durante upload no
@@ -90,16 +89,28 @@ Atualização: A interface agora traduz os controles do seletor, ordena os itens
   Quando a pasta selecionada tem arquivos na raiz, o hen-Nave agora envia os
   arquivos reais em ordem, com um arquivo da raiz primeiro para manter a pasta
   selecionada como base e preservar os caminhos relativos. Pastas sem arquivos na
-  raiz usam o fluxo padrão do QtWebEngine. O envio real ainda precisa ser
-  confirmado no executável Windows.
+  raiz usam o fluxo padrão do QtWebEngine. O LOG_GERAL registra a preparação de
+  uma pasta com 125 arquivos; o usuário confirmou que também concluiu um upload.
+  Isso valida o fluxo no Windows para o teste realizado.
 
-[DOWNLOAD-STATUS] STATUS: CORRIGIDO
+[DOWNLOAD-STATUS] STATUS: CÓDIGO CORRIGIDO; VALIDADO NO WINDOWS
 Data descoberta: 2026-11-07
 Descrição: Ao iniciar um download, o app lançava NameError porque a duração da
   mensagem de status não estava importada em browser.py.
 Solução: Importada a constante já definida em _CONFIGURA_/__init__.py.
 Verificação: Teste de ligação e compileall passaram; não foi possível testar o
   download real no Windows neste ambiente.
+Atualização 2026-11-10: Um novo log de uma execução congelada voltou a mostrar
+  NameError para STATUS_DOWNLOAD_INICIO_MS em browser.py:871. No workspace atual,
+  a constante é definida em _CONFIGURA_/__init__.py, importada por browser.py e
+  usada no fluxo de download; a linha 871 atual pertence à gravação do tema.
+  Suspeita principal: executável antigo ou construído de outra cópia do código.
+  Comparar/sincronizar a origem e recompilar antes de tratar como regressão do
+  código atual.
+Atualização com os logs seguintes: o CRASH_NATIVO anexado é byte a byte idêntico
+  aos anteriores; portanto, o NameError é um registro antigo, não uma nova
+  ocorrência. O usuário confirmou que concluiu um download no Windows após a
+  correção; o LOG_GERAL atual não registra esse NameError.
 
 [AUTOCOMPLETE-BUSCA] STATUS: CORREÇÃO APLICADA; VALIDAR NO WINDOWS
 Data descoberta: 2026-11-08
@@ -117,5 +128,97 @@ Solução / workaround: Adicionadas sugestões locais de sites, favoritos, pági
 Verificação: Testes automatizados, compileall e git diff --check passaram.
   Quatro testes que dependem de PySide6 são pulados neste ambiente. A interface
   Qt real e a edição da faixa de favoritos ainda precisam de validação no Windows.
+
+[YTDLP-DNS] STATUS: HISTÓRICO; NÃO REPRODUZIDO NA VALIDAÇÃO ATUAL
+Data descoberta: 2026-11-10
+Descrição: O yt-dlp não conseguiu resolver o endereço de uma página da API do
+  YouTube: `[youtube:tab] recommended: Unable to download API page:
+  [Errno 11001] getaddrinfo failed`.
+Como reproduzir: Tentar analisar ou baixar uma página do YouTube enquanto o
+  Windows não consegue resolver o host do serviço.
+Causa suspeita: Falha de DNS/rede, proxy ou firewall; a resolução do nome falha
+  antes de o yt-dlp receber a resposta da API. O log sozinho não indica bug do
+  navegador.
+Solução / workaround: Confirmar internet e resolução DNS no Windows, revisar
+  proxy/firewall e tentar novamente. Não desativar TLS nem ampliar permissões do
+  navegador para contornar esse erro.
+Verificação: A mensagem aparece somente no CRASH_NATIVO, cujo conteúdo está
+  byte a byte idêntico às capturas anteriores. Não é uma falha nova da sessão
+  validada. Se voltar a ocorrer em uma captura realmente nova, indica falha de
+  resolução de DNS/rede, não um erro do fluxo normal de download já testado.
+
+[YTDLP-404] STATUS: HISTÓRICO; SEM OCORRÊNCIA NOVA
+Data descoberta: 2026-11-10
+Descrição: O extrator genérico do yt-dlp recebeu HTTP 404 para
+  `PLANO_PIPELINE_BANCO_DADOS_PARA_CLAUDE`.
+Como reproduzir: Não determinado; o log não inclui a URL HTTP completa nem
+  confirma o texto originalmente informado no campo.
+Causa suspeita: Página/link inexistente ou entrada que não aponta para uma página
+  de mídia. A validação do código atual exige URL HTTP(S) com host; se esse texto
+  sem URL foi enviado ao yt-dlp, comparar com a versão efetivamente executada.
+Solução / workaround: Conferir o endereço informado e testar o link no navegador.
+  Na próxima reprodução, registrar somente o host e caminho necessários, sem
+  tokens ou parâmetros privados.
+Verificação: A mensagem permanece apenas no CRASH_NATIVO idêntico às capturas
+  anteriores; o LOG_GERAL validado não registra nova resposta 404. Sem a URL de
+  uma ocorrência nova, não há erro atual do navegador a corrigir.
+
+[PERFORMANCE-WINERROR-1455] STATUS: CORREÇÃO APLICADA; PAINEL VALIDADO NO WINDOWS
+Data descoberta: 2026-11-10
+Descrição: A atualização do painel de desempenho falhou durante a enumeração
+  recursiva de processos Chromium com `OSError: [WinError 1455] O arquivo de
+  paginação é muito pequeno para que esta operação seja concluída`.
+Causa suspeita: O Windows estava sem memória comprometida/página de paginação
+  suficiente para enumerar os processos. Isso não prova, por si só, um vazamento
+  de memória do hen-Nave.
+Impacto: O erro podia escapar do amostrador e interromper a atualização do QTimer
+  em PerformanceMonitor.refresh.
+Solução: O amostrador captura OSError junto com os erros do psutil e, se a
+  enumeração dos filhos falhar, retorna a amostra disponível do processo raiz
+  marcada como parcial. Isso mantém a interface ativa e permite novas amostras.
+Verificação: Teste automatizado simula OSError 1455 e confirma a amostra parcial.
+  O usuário confirmou que abriu e usou o painel de desempenho no Windows. O
+  LOG_GERAL recente não registra um novo WinError 1455; o texto que permanece em
+  CRASH_NATIVO é idêntico ao arquivo antigo. A medição parcial ainda é esperada
+  quando o Windows não consegue enumerar os processos filhos.
+
+[WINDOWS-COM-0x8001010D] STATUS: AVISO NÃO BLOQUEANTE; ORIGEM NÃO IDENTIFICADA
+Data descoberta: 2026-11-10
+Descrição: O log da sessão registra `Windows fatal exception: code 0x8001010d`
+  logo após exibir a janela. O traceback aponta para a chamada app.exec(); o
+  evento, sozinho, não confirma que o aplicativo encerrou.
+Causa suspeita: Exceção nativa/COM do Windows ou Qt durante o loop de eventos;
+  esse registro isolado não identifica o callback nem confirma que o processo
+  terminou.
+Solução / workaround: Removido o filtro VEH que tentava continuar a execução
+  automaticamente para esse código sem identificar nem corrigir a origem. O
+  tratamento normal de exceções do Windows/Qt e o faulthandler permanecem ativos.
+  Correlacionar horário, versão do executável e eventual fechamento real do app
+  com um novo CRASH_NATIVO; não atribuir o evento aos erros do yt-dlp sem evidência.
+Atualização 2026-11-10: O LOG_GERAL da sessão seguinte registra o evento em
+  main.py:159, que corresponde a app.exec() no código atual, e continua registrando
+  navegações até pelo menos 11:22:15. O aplicativo permaneceu ativo por mais de
+  dois minutos após o aviso; não há evidência de encerramento nesse trecho. O novo
+  CRASH_NATIVO é byte a byte idêntico ao anterior e não deve ser tratado como
+  captura nova.
+Nova sessão: O aviso voltou a aparecer em 11:24:38, e o LOG_GERAL continuou
+  registrando navegações até 11:27:38. O usuário confirmou que, após o aviso,
+  realizou download, upload e usou o painel de desempenho sem bloqueio. Não há
+  impacto funcional observado nos testes relatados; a origem COM/Qt ainda não foi
+  identificada. O filtro que ignorava a exceção foi removido para não mascarar
+  falhas reais.
+
+[WEBGPU-CONTEXT] STATUS: INVESTIGANDO
+Data descoberta: 2026-11-10
+Descrição: O QtWebEngine registrou `Failed to create WebGPU Context Provider`.
+Causa suspeita: O provedor de contexto WebGPU não foi criado nesta execução.
+  Isso não demonstra que toda aceleração gráfica do Chromium falhou.
+Solução / workaround: Executar o diagnóstico gráfico local do hen-Nave e
+  distinguir disponibilidade WebGL/WebGPU do compositor; não forçar flags de GPU
+  com base somente nesse aviso.
+Verificação: O aviso aparece no log anexado; o estado gráfico real não foi medido.
+  O usuário confirmou que navegou, baixou e enviou arquivos após o aviso. Não há
+  impacto funcional observado nesses fluxos; isso não comprova se WebGPU está
+  disponível nem se toda a renderização usa aceleração de hardware.
 
 ════════════════════════════════════════════════════════════════════════════════

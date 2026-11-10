@@ -1,0 +1,423 @@
+PLANO DE IMPLEMENTAÇÃO
+EXPLORADOR, ABERTURA DE ARQUIVOS E ORGANIZAÇÃO DO NAVEGADOR
+================================================================
+
+Data de criação: 2026-11-10
+Estado: implementação parcial; etapas restantes continuam listadas como pendentes.
+Objetivo: usar este arquivo como checklist da próxima etapa de implementação.
+
+COMO USAR ESTE CHECKLIST
+----------------------------------------------------------------
+[ ] Marcar cada item somente depois de implementar e verificar.
+[ ] Não marcar uma fase como concluída apenas porque o código compila.
+[ ] Registrar em cada fase os testes executados e o que ainda depende de Windows.
+[ ] Preservar os comportamentos existentes; extrair/refatorar antes de substituir.
+[ ] Atualizar este plano e nucleo/_ULTIMOS_FIX.txt ao concluir cada fase.
+
+RESUMO DO QUE FOI PEDIDO
+----------------------------------------------------------------
+1. Ao gerar um documento da estrutura, a pasta escolhida é sempre a raiz.
+   Os itens selecionados devem aparecer abaixo dela sem remover a raiz.
+2. Organizar o browser.py, hoje muito grande, dentro de um pacote _BROWSER_,
+   dividido por responsabilidade. Manter browser.py pequeno como ponto de entrada
+   e compatibilidade.
+3. No Explorador local, abrir arquivos em novas abas internas ao ativar/dar
+   duplo clique: texto como texto, imagem como imagem e vídeo com controles de
+   reprodução. Considerar também áudio e PDF já suportados pela prévia existente.
+4. No acesso "Abrir pasta de dados", manter a pasta de dados atual como destino,
+   ocultar a busca desnecessária nesse modo e permitir abrir arquivos em abas.
+5. Não quebrar o seletor de upload de sites: selecionar um arquivo para enviar
+   continua enviando-o ao site; abrir uma prévia é uma ação separada.
+6. Reorganizar os componentes dos botões da barra direita dentro de
+   _APP_/barra_direita_tools/, incluindo anotações e os painéis específicos das
+   ferramentas. A janela principal deve instanciar um coordenador da barra e
+   fornecer somente o contexto/callbacks básicos.
+
+LEVANTAMENTO DO CÓDIGO ATUAL
+----------------------------------------------------------------
+[x] A tela de árvore e prévia da estrutura é _APP_/explorer_tab.py.
+[x] _SERVICOS_/explorer_filesystem.py já gera o nome da pasta raiz mesmo quando
+    não há itens selecionados. Há teste de regressão para raiz sem seleção.
+[x] O botão "Gerar documento" chama uma tarefa em segundo plano. Ao mudar uma
+    seleção, _on_tree_item_changed limpa a prévia atual; não a regenera
+    imediatamente. Esta é a lacuna principal para o comportamento dinâmico pedido.
+[x] _APP_/file_preview.py já implementa prévias somente leitura para texto,
+    imagem, áudio, vídeo e PDF. _SERVICOS_/file_preview.py classifica e limita
+    a leitura. Essa tela ainda precisa ser ligada à ativação de arquivos na aba
+    do navegador.
+[x] A ação "Abrir pasta de dados" usa appdata.pasta_raiz como start_path.
+    A ação e sua lógica ficam em browser.py; a barra visual genérica fica em
+    _APP_/barra_direita_tools/sidebar.py. __init__.py não é o local da ação.
+[x] browser.py tinha 4.120 linhas e agora tem cerca de 3.580. main.py importa
+    BrowserController e register_custom_url_scheme diretamente de browser.py;
+    manter esses nomes disponíveis para não quebrar a inicialização.
+[x] A janela principal trata ExplorerTab como uma aba local; a nova aba de
+    prévia também terá de entrar no ciclo correto de seleção, fechamento e sessão.
+[x] _APP_/barra_direita_tools/ já contém sidebar.py, browser_downloads.py,
+    dialogs.py e captura.py; __init__.py já exporta CaptureManager e os outros
+    componentes dessa pasta.
+[x] AiAssistantDock foi movido para
+    _APP_/barra_direita_tools/ai_assistant.py; _APP_/ai_assistant.py mantém
+    apenas reexportação de compatibilidade.
+[x] RightToolsManager instancia CaptureManager e liga seus sinais por callbacks;
+    a cópia antiga _APP_/captura.py agora reexporta a implementação canônica.
+[x] RightToolsSidebar recebe a ação de tradução por callback, sem acessar
+    diretamente métodos da janela proprietária.
+[x] NotesDock, AiAssistantDock e VideoDownloadDock têm implementação canônica
+    dentro do pacote; os caminhos antigos permanecem como compatibilidade. Ainda
+    faltam migrar ExplorerTab e PageInspectorDock.
+[x] _APP_/barra_direita_tools/captura.py é a implementação canônica. O caminho
+    antigo _APP_/captura.py só reexporta a API legada.
+
+FASE 1 — RAIZ FIXA E PRÉVIA DA ESTRUTURA
+----------------------------------------------------------------
+Objetivo: escolher uma pasta gera automaticamente o projeto completo, com raiz
+fixa; as caixas de seleção permitem remover ou restaurar ramos.
+
+[x] Gerar automaticamente a estrutura da raiz assim que uma pasta é escolhida,
+    sem exigir que o usuário marque um item ou clique em um botão.
+[ ] Reproduzir na interface Windows o fluxo de escolher pasta e gerar sem itens.
+[x] Preservar a raiz como primeira linha permanente; ela não pode ser removida
+    ao marcar/desmarcar arquivos ou subpastas.
+[x] Depois da primeira geração, atualizar a prévia conforme a seleção da árvore
+    muda, sem exigir que o usuário escolha a raiz novamente.
+[x] Iniciar com todos os itens selecionados e gerar o projeto inteiro abaixo da
+    raiz, mantendo a hierarquia relativa.
+[x] Ao desmarcar um item, removê-lo da prévia, mas manter a raiz e os ramos que
+    continuarem selecionados; marcar novamente restaura o ramo.
+[x] Se todos os itens forem desmarcados, voltar a mostrar somente a raiz.
+[x] Evitar várias tarefas concorrentes durante cliques rápidos: cancelar ou
+    substituir gerações antigas e usar a execução em segundo plano já existente.
+[x] Manter limites de quantidade, profundidade, tempo e caracteres; mostrar o
+    aviso de resultado parcial quando algum limite for atingido.
+[x] Preservar nomes ignorados, estados parcialmente marcados e segurança contra
+    links simbólicos e caminhos que escapem da raiz.
+
+Critérios de aceite da Fase 1:
+[x] A estrutura completa aparece automaticamente ao escolher a pasta.
+[x] Os itens começam marcados; desmarcar e remarcar atualiza a estrutura.
+[x] Desmarcar todos deixa apenas a raiz.
+[x] Copiar e salvar exportam exatamente o conteúdo visível da prévia.
+[x] Nenhum conteúdo interno dos arquivos é incluído no documento de estrutura;
+    ele continua sendo uma lista de nomes e contagens.
+[x] Clique simples mostra uma prévia compacta no terceiro painel; duplo clique
+    continua abrindo o arquivo em uma nova aba.
+[x] Remover o botão redundante "Gerar documento".
+
+Verificação da Fase 1: `python -m unittest tests.test_explorer_wiring
+tests.test_explorer_filesystem` — 45 testes passaram. A suíte completa passou
+com 261 testes e 7 pulados. A validação manual da interface no Windows continua
+pendente porque PySide6 não está instalado neste ambiente.
+
+Arquivos principais: _APP_/explorer_tab.py, _SERVICOS_/explorer_filesystem.py,
+_THREADS_/explorer_worker.py, tests/test_explorer_filesystem.py e
+tests/test_explorer_wiring.py.
+
+FASE 2 — EXTRAÇÃO GRADUAL DE browser.py PARA _BROWSER_
+----------------------------------------------------------------
+Objetivo: deixar browser.py como ponto de entrada/compatibilidade e repartir a
+implementação por responsabilidades sem uma reescrita arriscada.
+
+[x] Registrar a suíte completa atual como linha de base: 254 testes passaram,
+    7 foram pulados.
+[x] Criar _BROWSER_/__init__.py com API pública carregada sob demanda.
+[x] Preservar os nomes públicos usados por main.py em browser.py, incluindo
+    BrowserController e register_custom_url_scheme; não duplicar implementações.
+[ ] Extrair BrowserController e ciclo de vida/perfis para controller.py.
+[x] Separar AnonymousProfileLease em _BROWSER_/profile_lifecycle.py; a função
+    de configuração do perfil é fornecida por callback para evitar import circular.
+[x] Separar TabCloseButton, BrandMenuButton e o fallback de ícone em
+    _BROWSER_/window_controls.py, preservando os imports públicos internos.
+[x] Separar a moldura, o hit-test nativo do Windows e os controles da janela em
+    _BROWSER_/window_frame.py, mantendo os métodos herdados pela BrowserWindow.
+[x] Separar a coordenação dos painéis laterais em
+    _BROWSER_/window_panels.py, preservando o ciclo de DevTools e desempenho.
+[x] Separar o menu, os caminhos e os retornos das capturas em
+    _BROWSER_/window_capture.py, preservando os callbacks do CaptureManager.
+[x] Extrair BrowserPage, permissões, navegação e seleção de uploads para page.py.
+[x] Extrair o registro do esquema interno para url_schemes.py, mantendo a chamada
+    de compatibilidade em browser.py para ocorrer antes de QApplication.
+[ ] Manter BrowserWindow como orquestrador, mas dividir seus grupos de métodos
+    em componentes/módulos coesos, por exemplo:
+    - window.py: montagem e coordenação da janela.
+    - window_tabs.py: criação, seleção, sessão e fechamento de abas.
+    - window_navigation.py: endereço, busca, histórico e navegação.
+    - window_downloads.py: downloads comuns e atualização dos painéis.
+     - window_panels.py: painéis laterais e sincronização de páginas
+       (extraído; continua herdado pela janela).
+    - window_tools.py: Explorador, pasta de dados, captura e ações auxiliares.
+    Os nomes finais devem seguir o acoplamento real encontrado ao extrair.
+[ ] Manter a separação de camadas: _BROWSER_ cuida do navegador e do ciclo de
+    vida; os componentes visuais exclusivos da barra direita ficam em
+    _APP_/barra_direita_tools/ (ver Fase 5). Não criar import circular entre eles.
+[ ] Usar composição ou mixins com responsabilidades explícitas; não mover blocos
+    cegamente por número de linha nem deixar outro arquivo monolítico.
+[ ] Evitar importações circulares e preservar a propriedade dos objetos Qt,
+    conexões de sinais, threads, janelas normais e modo anônimo.
+[ ] Fazer a extração em etapas pequenas; rodar testes focados e suíte completa
+    após cada conjunto coerente de movimentos.
+[x] Ajustar testes que leem o AST de browser.py para testar os novos módulos;
+    manter as mesmas verificações comportamentais.
+[x] Manter main.py usando a API pública de browser.py, sem conhecer os módulos
+    internos.
+[ ] Ao final, reduzir browser.py a uma fachada pequena de imports/reexports e
+    inicialização, sem lógica duplicada.
+
+Critérios de aceite da Fase 2:
+[x] Os nomes BrowserController e register_custom_url_scheme continuam
+    disponíveis em browser.py para a importação existente de main.py.
+[ ] Inicialização, abas, navegação, downloads, uploads, modo anônimo, painéis,
+    Explorador, pasta de dados e atalhos continuam funcionando.
+[ ] Importações não criam ciclos e o registro de esquema ocorre antes de
+    QApplication.
+[ ] Suíte e compilação passam; os 7 testes que dependem do Qt foram pulados por
+    PySide6 não estar instalado, então a importação real ainda depende do Windows.
+
+FASE 3 — ABRIR ARQUIVOS EM ABAS DO NAVEGADOR
+----------------------------------------------------------------
+Objetivo: ativar um arquivo do Explorador e vê-lo dentro do hen-Nave, sem abrir
+um aplicativo externo e sem executar conteúdo local.
+
+[x] Ligar o duplo clique em arquivos na árvore de _APP_/explorer_tab.py à
+    abertura de uma nova aba interna.
+[x] Duplo clique em pasta continua expandindo/navegando a árvore; não deve abrir
+    a pasta como se fosse um arquivo.
+[x] Reutilizar _APP_/file_preview.py e FilePreviewTab em vez de criar um segundo
+    visualizador paralelo.
+[x] Integrar a nova aba com seleção, título, ícone, fechamento e limpeza de
+    recursos da janela principal.
+[x] Ao fechar a aba, parar o QMediaPlayer e liberar recursos de PDF/mídia.
+[x] Não salvar caminhos locais de prévia na sessão restaurável nem no histórico
+    web. Não enviar arquivos ao site, à IA ou a serviços externos por abrir a
+    prévia.
+[x] Manter caminhos restritos à raiz autorizada com resolve_file_inside_root;
+    rejeitar links simbólicos/caminhos externos e lidar com arquivo removido
+    entre seleção e abertura.
+[x] Mostrar texto em modo somente leitura, sem executar HTML, JavaScript,
+    scripts ou binários.
+[x] Mostrar imagens com limites de tamanho e dimensões já definidos.
+[x] Abrir vídeos com controles de reprodução, pausa, posição e erro legível.
+    Preservar suporte a áudio e PDF quando os componentes estiverem disponíveis.
+[x] Para formatos desconhecidos, arquivos corrompidos ou dependências ausentes,
+    abrir uma aba com mensagem clara; não travar nem abrir o arquivo externamente.
+[x] No fluxo de upload de site, manter a seleção e o envio funcionando. Se o
+    usuário precisar visualizar um arquivo selecionado para upload, oferecer
+    abertura explícita em outra aba sem cancelar nem substituir o envio.
+
+Vídeo e FFmpeg — validação necessária:
+[ ] Verificar no Windows qual ffmpeg.exe está disponível e se está em
+    FFmpeg/, FFmpeg/bin/ ou PATH. Este workspace não contém um binário FFmpeg;
+    README.md documenta FFmpeg principalmente para downloads e processamento.
+[ ] Testar primeiro os codecs reais do QtMultimedia/QMediaPlayer usado por
+    FilePreviewTab. A presença de FFmpeg para download não garante que o
+    QMediaPlayer consiga reproduzir todos os formatos.
+[ ] Se o QtMultimedia não suportar os formatos necessários, escolher e testar
+    uma integração de playback baseada no FFmpeg disponível, mantendo fallback
+    e sem iniciar processos com argumentos inseguros.
+[ ] Não afirmar que vídeos funcionam até validar MP4/H.264 e outros formatos
+    relevantes no executável Windows usado pelo usuário.
+
+Critérios de aceite da Fase 3:
+[x] Duplo clique em .txt/.py/.md mostra texto em nova aba.
+[x] Duplo clique em imagem mostra a imagem em nova aba.
+[ ] Duplo clique em vídeo abre controles; reprodução real é testada no Windows.
+[x] Pasta continua expansível; arquivos de upload continuam sendo enviados.
+[x] Aba fecha sem deixar áudio, processos ou arquivos locais na sessão seguinte.
+
+Verificação da Fase 3: 77 testes focados passaram; 2 testes foram pulados.
+Controles e codecs de vídeo ainda precisam ser confirmados no executável Windows.
+
+Arquivos principais: _APP_/explorer_tab.py, _APP_/file_preview.py,
+_SERVICOS_/file_preview.py, _SERVICOS_/explorer_filesystem.py, browser.py (ou
+_BROWSER_/ após a Fase 2), tests de Explorador/prévia e configuração de textos.
+Após a Fase 5, os componentes exclusivos da barra podem estar em
+_APP_/barra_direita_tools/; atualizar os imports sem manter cópias duplicadas.
+
+FASE 4 — "ABRIR PASTA DE DADOS" COMO EXPLORADOR DE INSPEÇÃO
+----------------------------------------------------------------
+Objetivo: conservar o destino da pasta de dados e abrir seus arquivos em abas
+internas, sem busca desnecessária nem alteração acidental dos dados.
+
+[x] Manter a ação "Abrir pasta de dados" no rodapé da barra direita.
+[x] Manter como raiz de início appdata.pasta_raiz; não substituir por uma pasta
+    recente, raiz do projeto, diretório de downloads ou seletor de pastas.
+[x] Criar uma opção/modo específico para esse uso, sem mudar os demais usos do
+    Explorer genérico.
+[x] Nesse modo, ocultar o campo de pesquisa/filtro e impedir a troca da raiz.
+    Permitir navegar apenas dentro da pasta de dados iniciada em appdata.pasta_raiz.
+[x] Tratar este acesso como inspeção: desativar renomear, mover e excluir nesse
+    modo, salvo pedido explícito posterior.
+[x] Duplo clique em arquivo de dados abre uma nova aba interna usando o
+    visualizador seguro da Fase 3; pastas continuam navegáveis.
+[x] Preservar modo privado: a janela anônima não deve revelar dados persistentes
+    nem salvar caminho recente.
+[x] Corrigir comportamento na ação real: o código da ação está em browser.py
+    (open_app_data_action/open_app_data) e o botão visual é adicionado pela
+    barra de _APP_/barra_direita_tools/sidebar.py. Não colocar lógica do botão
+    em __init__.py apenas por causa do caminho citado. Depois da Fase 5, a
+    implementação específica da ferramenta deve ser delegada ao pacote da barra.
+
+Critérios de aceite da Fase 4:
+[x] Botão continua no rodapé e abre a mesma pasta de dados de antes.
+[x] Campo de busca não aparece somente nesse modo.
+[x] Não é possível trocar a raiz nem editar/apagar arquivos nesse modo.
+[x] Arquivos de texto, imagem e vídeo podem ser abertos em abas internas.
+[x] Outros seletores e modos do Explorer permanecem inalterados.
+
+Verificação da Fase 4: coberta pela suíte focada da Fase 3; o modo anônimo
+também tem teste específico que confirma que a pasta persistente não é aberta.
+
+FASE 5 — COMPONENTES E INSTANCIAÇÃO DENTRO DA BARRA DIREITA
+----------------------------------------------------------------
+Objetivo: reunir dentro de _APP_/barra_direita_tools/ os componentes de interface
+e configurações específicas dos botões da barra direita. Fora do pacote, a janela
+principal deve manter apenas a integração geral e uma instanciação de alto nível.
+
+Estado atual conferido:
+[x] sidebar.py cria a barra e os botões genéricos; browser.py cria várias ações,
+    painéis e conexões específicas.
+[x] captura.py já existe dentro do pacote e é exportado por __init__.py. Não criar
+    uma segunda implementação de captura.
+[x] NotesDock agora tem implementação canônica em
+    _APP_/barra_direita_tools/anotacoes.py; _APP_/anotacoes.py é uma
+    reexportação de compatibilidade.
+[x] browser_downloads.py e dialogs.py já agrupam partes de Downloads, Histórico
+    e Favoritos dentro do pacote.
+
+[x] Fazer uma lista de todos os botões, menus, painéis, ações e configurações
+    visíveis na barra direita, na mesma ordem em que aparecem hoje.
+[x] Mapear cada ação para o componente que a implementa, verificando também
+    atalhos, estados habilitados/desabilitados, ícones, textos acessíveis,
+    modo anônimo e sinais/conexões.
+[x] Mover NotesDock para _APP_/barra_direita_tools/anotacoes.py e exportá-lo
+    pelo __init__.py do pacote.
+[ ] Mover os componentes de interface exclusivos dos botões para dentro do
+    pacote, com nomes claros e sem duplicação. Verificar pelo menos:
+    - [ ] CaptureManager está no pacote e é criado pelo manager; menu/ações ainda
+      ficam em browser.py.
+    - [x] VideoDownloadDock está em _APP_/barra_direita_tools/download_video.py;
+      _APP_/download_video.py mantém reexportação de compatibilidade.
+    - [x] AiAssistantDock está em _APP_/barra_direita_tools/ai_assistant.py;
+      as configurações exclusivas do assistente ainda ficam em _APP_/ai_config.py.
+    - ExplorerTab: atualmente _APP_/explorer_tab.py.
+    - PageInspectorDock: atualmente _APP_/inspector.py.
+    - [x] DevToolsPanel já está separado em
+      _APP_/barra_direita_tools/devtools.py.
+    - PerformancePanel: atualmente _APP_/performance_panel.py.
+    - Abrir pasta de dados e limpar cache: organizar como ferramenta/manutenção
+      da barra, preservando a raiz e o modo de inspeção da Fase 4.
+[x] Manter dentro do pacote os componentes que já estão corretos:
+    sidebar.py, captura.py, browser_downloads.py e dialogs.py.
+[x] Comparar as cópias de captura; a cópia interna é canônica e o caminho antigo
+    reexporta a implementação após confirmar que imports e testes permanecem válidos.
+[x] Exportar a API pública do pacote em __init__.py sem criar widgets ao importar.
+[x] Criar manager.py para instanciar os painéis e ações da barra e conectar seus
+    sinais.
+[x] A janela cria um RightToolsManager e fornece contexto explícito com pai Qt,
+    controlador/perfil, estado privado, pilha, barra e callbacks do navegador.
+[ ] Evitar que módulos do pacote importem browser.py ou _BROWSER_ para acessar
+    métodos internos. Usar callbacks/protocolo/contexto explícito para ações
+    como traduzir página, navegar, abrir uma aba ou atualizar o estado da página.
+[ ] Criar e manter as configurações específicas de cada botão junto à ferramenta
+    correspondente dentro do pacote. Textos, temas e atalhos compartilhados
+    continuam em _CONFIGURA_; armazenamento e serviços compartilhados continuam
+    em _APPDATA_/_SERVICOS_.
+[ ] Manter fora do pacote os componentes que não pertencem exclusivamente à barra,
+    como serviços reutilizáveis, utilitários, o status CPU/RAM do rodapé e
+    diálogos de menu não associados a um botão da barra. Separar classes quando
+    um arquivo, como security_tools.py, misturar responsabilidades.
+[ ] Preservar ordem, posição, tamanhos, ícones, acessibilidade e atalhos de todos
+    os botões. A barra não deve apresentar controles duplicados.
+[ ] Atualizar os imports de browser.py ou _BROWSER_/ para consumir a API pública
+    do pacote; deixar a janela com somente a coordenação básica e a instanciação
+    do conjunto de ferramentas.
+[ ] Migrar/ajustar os testes estáticos que esperam componentes em browser.py ou
+    em caminhos antigos; manter os testes de comportamento para cada botão.
+
+Mapa inicial dos componentes (confirmar e completar durante a fase):
+  Captura, menu e ações       -> _APP_/barra_direita_tools/captura.py
+  Histórico e Favoritos      -> _APP_/barra_direita_tools/dialogs.py
+  Downloads do navegador     -> _APP_/barra_direita_tools/browser_downloads.py
+  Anotações                  -> _APP_/barra_direita_tools/anotacoes.py
+                                (_APP_/anotacoes.py mantém reexportação antiga)
+  Download de vídeo          -> _APP_/barra_direita_tools/download_video.py
+  Assistente de IA            -> _APP_/barra_direita_tools/ai_assistant.py
+  Tradução                   -> ação/integração da ferramenta de IA no pacote;
+                               receber a página ativa como callback/contexto
+  Explorador                  -> mover _APP_/explorer_tab.py para o pacote
+  Inspetor                    -> mover PageInspectorDock de _APP_/inspector.py
+  DevTools                    -> separar DevToolsPanel de _APP_/security_tools.py
+  Desempenho                  -> mover a interface _APP_/performance_panel.py
+  Pasta de dados/cache        -> ferramenta de manutenção dentro do pacote
+  CPU/RAM compacto no rodapé  -> manter compartilhado fora da barra direita
+
+Ordem atual da barra direita (conferida no código):
+  Desempenho -> PerformancePanel; ação também aparece no menu Segurança e desempenho.
+  Explorador -> ExplorerTab; abre uma aba local.
+  Captura -> menu de captura da janela; CaptureManager executa as capturas.
+  Download de vídeo -> VideoDownloadDock.
+  Anotações -> NotesDock; indisponível em janela anônima.
+  Assistente de IA -> AiAssistantDock; configurações e pedidos são callbacks.
+  Traduzir página -> callback da janela para o assistente e fluxo de consentimento existente.
+  Histórico -> HistoryDialog; ação desativada no modo anônimo.
+  Downloads -> BrowserDownloadsDock; armazenamento em memória no modo anônimo.
+  Inspecionar página -> PageInspectorDock.
+  Ferramentas de desenvolvedor -> DevToolsPanel.
+  Rodapé -> Limpar cache, Abrir pasta de dados (modo de inspeção).
+
+Os três controles de página (bloqueador, economia de dados e favorito) ficam na
+barra superior, não na lateral. O rodapé CPU/RAM e os diálogos de menu não ligados
+a botões laterais permanecem compartilhados. A ordem e a aparência ainda precisam
+de conferência visual no Windows.
+
+Critérios de aceite da Fase 5:
+[ ] Cada botão da barra tem um componente/arquivo responsável dentro de
+    _APP_/barra_direita_tools/ ou está explicitamente documentado como compartilhado.
+[x] Captura tem uma única implementação canônica; NotesDock está dentro do pacote.
+[ ] browser.py/_BROWSER_/ cria uma única instância de alto nível para a barra e
+    delega a montagem de todos os componentes; ainda há ferramentas a migrar.
+[x] __init__.py exporta a API do pacote sem instanciar widgets na importação.
+[ ] Configurações futuras de um botão podem ser adicionadas junto à ferramenta
+    sem aumentar o núcleo do navegador.
+[ ] Nenhum ciclo de importação; sinais, pais Qt, fechamento de painéis e modo
+    anônimo continuam corretos.
+[ ] Ordem, aparência e funcionalidade dos botões permanecem iguais às atuais.
+
+FASE 6 — TESTES DE INTEGRAÇÃO E ENCERRAMENTO
+----------------------------------------------------------------
+[ ] Testar raiz sem seleção, inclusão, remoção e seleção parcial de subpastas.
+[ ] Testar duplo clique em pasta versus arquivo e abertura de várias abas.
+[ ] Testar arquivos de texto, imagem, vídeo, áudio, PDF, formato desconhecido,
+    arquivo grande, arquivo ilegível e arquivo removido.
+[ ] Testar que HTML é texto inerte e caminhos externos/symlinks são rejeitados.
+[ ] Testar upload para um site após a mudança e confirmar que a nova prévia não
+    intercepta nem cancela a escolha dos arquivos.
+[ ] Testar "Abrir pasta de dados" com raiz fixa, pesquisa oculta e ações de
+    escrita/destruição desativadas.
+[ ] Testar fechamento de abas, troca de tema, janela anônima e restauração de
+    sessão; abas locais não devem virar URLs web persistentes.
+[ ] Testar todos os botões antes/depois da extração e confirmar que cada um abre
+    a ferramenta certa sem duplicar instâncias.
+[ ] Testar importação real de _APP_.barra_direita_tools e da API compatível de
+    browser.py/_BROWSER_; os testes Qt foram pulados porque PySide6 não está
+    instalado no ambiente de execução.
+[x] Rodar suíte completa (262 passaram, 7 foram pulados) e compileall.
+[ ] Executar verificações de segurança dos caminhos locais em ambiente Qt.
+[ ] Validar no Windows com a versão real do Qt/PySide6 e testar codecs de vídeo.
+[x] Registrar os resultados e os testes pulados neste plano e em
+    nucleo/_ULTIMOS_FIX.txt.
+[ ] Atualizar README.md, nucleo/_DOC_PROJETO.txt, testes e
+    nucleo/_ULTIMOS_FIX.txt conforme a implementação final.
+
+DEFINIÇÃO DE PRONTO
+----------------------------------------------------------------
+[ ] A raiz sempre aparece; a seleção só acrescenta ou remove conteúdo abaixo dela.
+[ ] Arquivos abrem em abas internas seguras e as pastas continuam navegáveis.
+[ ] "Abrir pasta de dados" continua apontando para appdata.pasta_raiz, sem busca
+    ou edição destrutiva nesse modo.
+[ ] browser.py é pequeno e mantém a API usada por main.py; a lógica está dividida
+    em módulos claros dentro de _BROWSER_.
+[ ] Os componentes e configurações dos botões da barra direita estão organizados
+    em _APP_/barra_direita_tools/, com instanciação centralizada no pacote.
+[ ] Testes automatizados e validação manual Windows documentam o que realmente
+    foi confirmado, sem declarar suporte de vídeo não testado.

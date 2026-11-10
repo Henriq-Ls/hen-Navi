@@ -1,5 +1,33 @@
-c atualizou o ════════════════════════════════════════════════════════════════════════════════
   ÚLTIMAS CORREÇÕES E ALTERAÇÕES
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-10] Extraídos módulos da página e coordenador da barra direita
+Arquivos alterados: _BROWSER_/__init__.py, _BROWSER_/page.py,
+  _BROWSER_/url_schemes.py, browser.py, _APP_/barra_direita_tools/manager.py,
+  _APP_/barra_direita_tools/anotacoes.py, _APP_/anotacoes.py, plano e testes.
+Escopo: BrowserPage e o registro do esquema interno foram extraídos sem duplicar
+  implementações em browser.py; NotesDock passou a ter uma implementação
+  canônica no pacote da barra, com reexportação antiga. RightToolsManager agora
+  cria os painéis e ações da barra a partir de contexto e callbacks explícitos.
+  A extração de BrowserController, a divisão dos grupos de BrowserWindow e a
+  migração das demais ferramentas continuam pendentes; esta atualização não
+  declara as Fases 2, 5 ou 6 completas.
+Verificação: 255 testes passaram, 7 foram pulados, e compileall passou.
+  PySide6 não está instalado neste ambiente, portanto a importação real da
+  interface e a validação visual/Windows não foram executadas.
+
+[2026-11-10] Estrutura completa e prévia compacta no Explorador
+Arquivos alterados: _APP_/explorer_tab.py, _APP_/file_preview.py,
+  _SERVICOS_/explorer_filesystem.py, _THREADS_/explorer_worker.py,
+  _CONFIGURA_/__init__.py, README, documentação, plano e testes.
+Solução: removido o botão de geração; a pasta escolhida gera toda a estrutura
+  automaticamente, com itens inicialmente marcados e caixas para excluir ou
+  restaurar ramos. Clique simples mostra prévia compacta; duplo clique abre
+  uma aba interna. A inspeção fixa do AppData mantém seu fluxo separado.
+Verificação: 261 testes passaram, 7 foram pulados e compileall passou.
+  PySide6 não está instalado; a interface e o fluxo visual no Windows não
+  foram verificados.
+
 ════════════════════════════════════════════════════════════════════════════════
 
 Formato:
@@ -9,6 +37,367 @@ Formato:
   Solução aplicada:
 
 ────────────────────────────────────────────────────────────────────────────────
+
+[2026-11-10] Confirmados download, upload e painel de desempenho no Windows
+Arquivos alterados: nucleo/_DOC_ERROS_BUGS.txt e nucleo/_ULTIMOS_FIX.txt.
+Validação do usuário: Após as correções, realizou um download, um upload e abriu
+  e usou o painel de desempenho. Não relatou bloqueio ou falha nesses fluxos.
+Leitura dos logs: O LOG_GERAL continua após o aviso 0x8001010d e mostra atividades
+  do navegador até 11:27:38. O CRASH_NATIVO anexado é idêntico aos arquivos
+  anteriores; seus registros de NameError, DNS, HTTP 404 e WinError 1455 são
+  históricos e não comprovam falha nesta execução.
+Estado: Download, upload e painel de desempenho validados pelo usuário no Windows.
+  O aviso 0x8001010d ainda aparece, mas não teve impacto funcional observado; sua
+  origem não foi identificada e não foi suprimido artificialmente.
+
+[2026-11-10] Validada parcialmente a preparação de upload no Windows
+Arquivos alterados: nucleo/_DOC_ERROS_BUGS.txt e nucleo/_ULTIMOS_FIX.txt.
+Resultado: O LOG_GERAL registra `BrowserPage.chooseFiles` preparando o envio de
+  uma pasta com 125 arquivos. O navegador continuou registrando navegações até
+  11:27:38, mais de três minutos após o aviso 0x8001010d; não há sinal de que
+  tenha fechado nesse intervalo. O CRASH_NATIVO permanece idêntico às cópias
+  anteriores, sem traceback novo.
+Limite: O log confirma a seleção/preparação, mas não mostra o site aceitando todos
+  os arquivos, nem confirma download ou atualização do painel de desempenho.
+
+[2026-11-10] Comparados novos logs da sessão Windows
+Arquivos alterados: nucleo/_DOC_ERROS_BUGS.txt e nucleo/_ULTIMOS_FIX.txt.
+Resultado: O LOG_GERAL da sessão atualizada registrou o aviso 0x8001010d em
+  main.py:159 e continuou registrando navegações por mais de dois minutos; não há
+  evidência de que o aplicativo tenha fechado nesse trecho. O CRASH_NATIVO
+  anexado é byte a byte idêntico ao anterior, então o NameError de download e o
+  WinError 1455 nele não são ocorrências novas confirmadas. A sessão atual não
+  confirma que os fluxos de download ou painel de desempenho foram exercitados.
+Próxima validação: testar um download e confirmar que o painel de desempenho
+  atualiza no Windows; investigar o aviso COM apenas se houver impacto observável.
+
+[2026-11-10] Tratados erro de amostragem do Windows e filtro COM não comprovado
+Arquivos alterados: _SERVICOS_/performance_diagnostics.py, main.py,
+  tests/test_performance_diagnostics.py, nucleo/_DOC_ERROS_BUGS.txt e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A enumeração de processos podia lançar OSError 1455 fora do tratamento
+  de erros do psutil. O filtro VEH de 0x8001010d retomava a execução sem corrigir
+  nem confirmar a causa da exceção nativa.
+Solução aplicada: A falha ao enumerar filhos agora gera amostra parcial do processo
+  raiz, sem interromper o painel. O filtro VEH foi removido para deixar o Windows
+  e o Qt tratarem a exceção normalmente; o faulthandler continua ativo.
+Verificação: Teste automatizado simula OSError 1455. A validação nativa e visual
+  no Windows ainda está pendente.
+
+[2026-11-10] Registrada melhoria futura de prévia nos dois Explorers
+Arquivos alterados: EXPLORER_INTEGRACAO.txt e nucleo/_ULTIMOS_FIX.txt.
+Pedido: Planejar uma terceira coluna para miniaturas de imagens, quadros estáticos
+  de vídeos e propriedades/tamanho de pastas, atualizada por foco ou passagem do
+  mouse sem abrir itens nem alterar os modos atuais.
+Escopo futuro: Implementar e validar tanto em
+  _template_pyside6/_ULTILIDADES_/explorer.py quanto em
+  hen-Navi 2/_ULTILIDADES_/explorer.py, preservando o funcionamento do Nave.
+Estado: Apenas documentado; aguardar o envio dos dois projetos após os testes
+  atuais do usuário. Nenhuma alteração de interface foi feita nesta etapa.
+
+[2026-11-10] Documentada a integração do Explorer na raiz do projeto
+Arquivos alterados: EXPLORER_INTEGRACAO.txt, README.md,
+  nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Objetivo: Registrar a origem do Explorer, os fluxos que o utilizam e as regras
+  para manter o comportamento existente do hen-Nave em futuras alterações.
+
+[2026-11-10] Explorer próprio integrado aos fluxos de arquivo
+Arquivos alterados: _ULTILIDADES_/explorer.py, _ULTILIDADES_/icones.py,
+  _CONFIGURA_/__init__.py, _CONFIGURA_/theme_engine.py, browser.py,
+  _APP_/explorer_tab.py, _APP_/download_video.py, _APP_/anotacoes.py,
+  _APP_/browser_downloads.py, _APP_/barra_direita_tools/browser_downloads.py,
+  README.md, nucleo/_DOC_PROJETO.txt e testes de integração.
+Escopo: Um único Explorer do projeto atende upload de arquivos/pastas,
+  seleção de raízes, destinos de download/vídeo, capturas, exportações e abertura
+  das pastas do AppData e de downloads. O último local e os locais recentes são
+  guardados na configuração do AppData; janelas anônimas não leem nem gravam esse
+  estado. A aba Explorador de estruturas continua separada.
+Verificação: 245 testes passaram e 7 testes que exigem Qt foram pulados porque
+  PySide6 não está instalado neste ambiente. `compileall` e `git diff --check`
+  passaram. A interface do desktop não pôde ser aberta visualmente aqui.
+
+[2026-11-10] Adicionadas métricas locais de rede ao painel de desempenho
+Arquivos alterados: _SERVICOS_/performance_diagnostics.py,
+  _APP_/performance_status.py, _APP_/performance_panel.py,
+  _CONFIGURA_/__init__.py, tests/test_performance_diagnostics.py,
+  tests/test_capture_wiring.py, nucleo/_DOC_PROJETO.txt e
+  nucleo/_ULTIMOS_FIX.txt.
+Escopo: Mostrar IPs locais, velocidades atuais de download/upload e volumes
+  recebidos/enviados desde o início da sessão do app. As métricas cobrem todas as
+  interfaces da máquina, não apenas o hen-Nave, e ficam somente em memória.
+Verificação: Testes de amostragem com contadores simulados passaram; a leitura
+  local real não pôde ser executada porque psutil não está instalado neste
+  ambiente, embora já conste em requirements.txt. A janela Qt também não pôde ser
+  aberta porque PySide6 não está instalado.
+
+[2026-11-10] Agrupadas as opções de segurança e desempenho
+Arquivos alterados: browser.py, _CONFIGURA_/__init__.py,
+  tests/test_capture_wiring.py, nucleo/_DOC_PROJETO.txt e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: Diagnósticos, segurança/privacidade do site e senhas apareciam no
+  menu principal; as opções do bloqueador estavam em Configurações, junto de
+  preferências gerais.
+Solução aplicada: Criado o submenu “Segurança e desempenho” para diagnósticos de
+  vídeo e gráfico, desempenho, segurança e privacidade do site, senhas e ações do
+  bloqueador. Configurações gerais foi separada por um divisor e movida para o
+  fim do menu.
+Verificação: Suíte completa: 243 testes passaram e 7 foram pulados; compileall e
+  git diff --check passaram. A interface Qt não pôde ser aberta porque PySide6
+  não está instalado neste ambiente.
+
+[2026-11-10] Unificado o cabeçalho dos painéis laterais
+Arquivos alterados: browser.py, _CONFIGURA_/theme_engine.py,
+  tests/test_capture_wiring.py, tests/test_download_history_wiring.py,
+  tests/test_theme_engine.py, nucleo/_DOC_PROJETO.txt e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: O painel lateral tinha título e botão de fechar na mesma faixa das
+  abas do navegador, enquanto cada QDockWidget também mostrava seu próprio título.
+  Isso duplicava os nomes e deixava os fundos dos painéis visualmente
+  inconsistentes.
+Solução aplicada: Todos os painéis agora usam o mesmo cabeçalho externo, abaixo
+  da altura da faixa de abas, com um único título e botão X. As barras de título
+  internas foram ocultadas; fundo, separador e texto do card seguem o tema ativo.
+  A área superior acompanha o tema e some quando as abas são ocultadas em tela
+  cheia.
+Verificação: Suíte completa: 242 testes passaram e 7 foram pulados; compileall e
+  git diff --check passaram. A interface Qt não pôde ser aberta porque PySide6
+  não está instalado neste ambiente.
+
+[2026-11-10] Personalizadas as dimensões da interface
+Arquivos alterados: _APP_/barra_direita_tools/sidebar.py,
+  _APP_/favorites_bar.py, _APP_/theme_editor.py, _CONFIGURA_/__init__.py,
+  _CONFIGURA_/temas.py, _CONFIGURA_/theme_engine.py, browser.py,
+  tests/test_capture_wiring.py, tests/test_download_history_wiring.py,
+  tests/test_explorer_wiring.py, tests/test_favorites_status_bar_wiring.py,
+  tests/test_shortcuts.py, tests/test_tab_behavior.py, tests/test_theme_engine.py
+  e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A barra lateral, abas e faixa inferior tinham dimensões fixas e não
+  estavam disponíveis na personalização de tema.
+Solução aplicada: A coluna começa mais estreita, com ícones maiores. O editor de
+  tema agora salva fonte, altura de abas, tamanho dos ícones e altura dos
+  favoritos/status; as dimensões relacionadas acompanham fonte e ícones. Salvar
+  aplica e persiste sem fechar o editor. Ctrl+Shift+M abre a personalização.
+Verificação: Suíte completa: 242 testes passaram, 7 pulados; compileall passou.
+  A interface não foi aberta porque PySide6 não está instalado neste ambiente.
+
+[2026-11-10] Unificado o fundo de favoritos e status
+Arquivos alterados: _CONFIGURA_/theme_engine.py, tests/test_theme_engine.py e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A faixa de status tinha fundo e borda diferentes da área transparente
+  usada pela faixa de favoritos.
+Solução aplicada: O contêiner dos favoritos, a barra de status, o indicador de
+  desempenho e a mensagem temporária agora usam a mesma cor de fundo do tema; a
+  borda do status foi removida para evitar uma quebra visual.
+Verificação: Suíte completa: 239 testes passaram, 7 pulados; testes de tema,
+  faixa de favoritos e compileall passaram. Não foi possível validar visualmente
+  sem PySide6.
+
+[2026-11-10] Invertidas as cores de fundo das abas
+Arquivos alterados: _CONFIGURA_/theme_engine.py, tests/test_theme_engine.py e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A aba ativa usava a cor de fundo principal e as inativas usavam a cor
+  de superfície.
+Solução aplicada: As cores de fundo foram trocadas entre abas ativas e inativas.
+  Texto, indicação de aba ativa, hover e demais aspectos visuais foram preservados.
+Verificação: Suíte completa: 239 testes passaram, 7 pulados; testes de tema e
+  compileall passaram. Não foi possível validar visualmente sem PySide6.
+
+[2026-11-10] Ajustado o fundo e a ordem da barra direita
+Arquivos alterados: _APP_/barra_direita_tools/sidebar.py,
+  _CONFIGURA_/theme_engine.py, browser.py, tests/test_capture_wiring.py,
+  tests/test_explorer_wiring.py, tests/test_theme_engine.py e
+  nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A barra direita usava um tom diferente do fundo principal, e os
+  botões Desempenho e Explorador não estavam no início da coluna.
+Solução aplicada: O fundo da barra e o fundo normal dos botões agora usam a cor
+  principal do tema; estados de hover/pressionado continuam diferenciados e os
+  ícones não foram alterados. Desempenho aparece primeiro e Explorador em segundo;
+  as demais ações mantêm a ordem relativa anterior.
+Verificação: 40 testes focados passaram; suíte completa: 239 testes passaram,
+  7 pulados; compileall passou. Não foi possível validar visualmente a janela
+  porque PySide6 não está instalado neste ambiente.
+
+[2026-11-10] Raiz sempre incluída no documento do Explorador
+Arquivos alterados: _APP_/explorer_tab.py, _CONFIGURA_/__init__.py,
+  tests/test_explorer_wiring.py, tests/test_explorer_filesystem.py,
+  README.md, nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: O Explorador não iniciava a geração sem itens marcados, apesar de o
+  gerador já suportar um documento contendo somente o nome da raiz.
+Solução aplicada: A geração agora sempre pode ser executada depois de escolher a
+  pasta. O nome da raiz aparece sempre; arquivos e subpastas só aparecem abaixo
+  dela quando marcados. A raiz não precisa ser marcada.
+Verificação: 31 testes focados passaram; a suíte completa executou 239 testes,
+  com 7 pulados; compileall passou. PySide6 não está instalado, então a janela
+  desktop não foi aberta neste ambiente.
+
+[2026-11-10] Navegação do Explorador convertida em árvore hierárquica
+Arquivos alterados: _APP_/explorer_tab.py, _CONFIGURA_/__init__.py,
+  tests/test_explorer_wiring.py, tests/test_explorer_filesystem.py,
+  README.md, nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: A navegação em colunas permitia abrir apenas um ramo por nível e
+  substituir os ramos anteriores; o fallback que incluía toda a raiz quando nada
+  estava marcado também fazia itens desmarcados reaparecerem no documento.
+Solução aplicada: A navegação agora usa uma árvore única com expansão sob demanda,
+  múltiplos ramos abertos e carregamentos independentes em segundo plano. Marcar
+  uma pasta a expande; a seleção define o documento e desmarcar exclui o ramo.
+  O painel de estrutura fica ao lado da árvore. Sem seleção, o usuário recebe uma
+  instrução em vez de gerar a raiz inteira.
+Verificação: 30 testes focados passaram; a suíte completa executou 238 testes,
+  com 7 pulados; compileall passou. PySide6 não está instalado neste ambiente,
+  então a janela desktop não pôde ser aberta para conferência visual.
+
+[2026-11-10] Simplificado o acesso e o fluxo do Explorador
+Arquivos alterados: browser.py, _APP_/explorer_tab.py,
+  _CONFIGURA_/__init__.py, tests/test_explorer_wiring.py, README.md,
+  nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: O Explorador ficava no menu e o botão de procurar não aplicava o
+  caminho digitado; além disso, era obrigatório marcar itens antes de gerar a
+  estrutura e as opções de ignorados ocupavam espaço o tempo todo.
+Solução aplicada: Adicionado botão Explorador à barra direita, próximo às ações
+  da pasta de dados, mantendo Ctrl+Shift+F e removendo a entrada do menu. Abrir
+  pasta aplica o caminho digitado; Escolher mantém o seletor opcional. Gerar
+  documento usa a raiz inteira quando não há seleção e limita a saída aos itens
+  marcados quando houver. As opções de ignorados agora ficam recolhidas.
+Verificação: 28 testes focados passaram; a suíte completa executou 236 testes,
+  com 7 pulados; compileall passou. A janela Qt não foi aberta neste ambiente.
+
+[2026-11-10] Concluído o Explorador local em aba nativa
+Arquivos alterados: browser.py, _APP_/explorer_tab.py,
+  _THREADS_/explorer_worker.py, _SERVICOS_/explorer_filesystem.py,
+  _SERVICOS_/explorer_settings.py, _CONFIGURA_/__init__.py,
+  tests/test_explorer_filesystem.py, tests/test_explorer_wiring.py,
+  tests/test_smoke_imports.py, tests/test_favorites_bar_refresh_qt.py,
+  README.md, nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: O Explorador estava parcialmente implementado e não integrado ao
+  navegador; também faltavam textos de interface e limites compartilhados para
+  listagem e contagem.
+Solução aplicada: Integradas aba nativa, menu Ferramentas e Ctrl+Shift+F, com
+  instância única, leitura em segundo plano cancelável, raiz canônica, proteção
+  contra links/junções, seleção em colunas, nomes ignorados persistentes e árvore
+  somente de nomes/metadados. Ações de página ficam inativas nessa aba; sessão,
+  histórico e sugestões locais não recebem dados do Explorador. README e documento
+  do projeto foram atualizados; testes Qt pulam corretamente sem PySide6.
+Verificação: 37 testes focados passaram; suíte completa executou 233 testes com
+  7 pulados; compileall passou. PySide6 não está instalado neste ambiente, então
+  a janela Qt não foi aberta. Junções reais do Windows também não foram testadas.
+
+[2026-11-09] Extraída a barra vertical para um módulo próprio
+Arquivos alterados: browser.py, _APP_/__init__.py,
+  _APP_/barra_direita_tools/__init__.py, _APP_/barra_direita_tools/sidebar.py,
+  tests/test_capture_wiring.py,
+  tests/test_download_history_wiring.py, README.md, nucleo/_DOC_PROJETO.txt,
+  nucleo/auditoria_botoes.txt, .agents/memory/browser-window-layout.md e
+  nucleo/_ULTIMOS_FIX.txt.
+Solução aplicada: A pasta barra_direita_tools agora cria os botões de página,
+  apresenta as ações existentes, separa os grupos e posiciona a pega de
+  redimensionamento. browser.py instancia o componente e mantém as conexões com
+  estado, painéis e ações. A montagem antiga e o helper duplicado foram removidos
+  de browser.py, sem deixar uma segunda cópia.
+Verificação: 21 testes da barra e 7 de histórico/downloads passaram; compileall e
+  git diff --check passaram. Na suíte completa de 207 testes, 6 foram pulados,
+  1 falhou por uma asserção antiga de favoritos e 1 erro ocorreu ao importar um
+  teste Qt porque PySide6 não está instalado. Sem PySide6, não foi possível abrir
+  ou validar visualmente o aplicativo desktop.
+
+[2026-11-09] Movidos os comandos da página para a barra vertical
+Arquivos alterados: browser.py, tests/test_capture_wiring.py,
+  tests/test_native_window_controls.py, README.md, nucleo/_DOC_PROJETO.txt,
+  nucleo/auditoria_botoes.txt, .agents/memory/MEMORY.md,
+  .agents/memory/browser-window-layout.md e nucleo/_ULTIMOS_FIX.txt.
+Solução aplicada: Marca, voltar, avançar, recarregar e endereço permanecem na
+  barra horizontal; minimizar, maximizar/restaurar e fechar foram colocados no
+  extremo direito. Bloqueador, economia de dados, favoritos, captura, vídeo/áudio,
+  anotações, IA e tradução agora aparecem antes das ferramentas na barra vertical.
+  Separadores distinguem ações da página, ferramentas e manutenção. A pega de
+  redimensionamento continua no rodapé da barra. Abas e painéis não foram alterados.
+Verificação: testes de ligação e ordem da interface passaram; compileall e
+  git diff --check passaram. A suíte completa executou 207 testes: 6 pulados,
+  1 falha já conhecida em uma asserção antiga de favoritos e 1 erro de importação
+  de teste Qt por falta de PySide6. A interface não foi validada visualmente neste
+  ambiente.
+
+[2026-11-09] Reorganizadas as barras superior e lateral direita
+Arquivos alterados: browser.py, _CONFIGURA_/theme_engine.py,
+  tests/test_capture_wiring.py, tests/test_download_history_wiring.py, README.md,
+  nucleo/_DOC_PROJETO.txt, nucleo/auditoria_botoes.txt e nucleo/_ULTIMOS_FIX.txt.
+Solução aplicada: Reordenados os comandos da barra superior, sem recolocar o
+  botão Início. A barra lateral própria foi encaixada dentro da área central com
+  Histórico, Downloads, Inspetor DOM, DevTools e Desempenho acima do separador;
+  Abrir dados e Limpar cache ficam abaixo. Os controles de janela e as ações
+  originais foram preservados. Entradas duplicadas foram removidas dos menus;
+  Ctrl+H e Ctrl+Shift+D continuam registrados na janela.
+Verificação: 53 testes focados passaram; compileall, git diff --check e a
+  verificação estática de ordem/menus/atalhos passaram. A suíte completa executou
+  206 testes: 6 pulados, 1 falha já conhecida na asserção antiga de favoritos e
+  1 erro de importação de teste Qt porque PySide6 não está instalado. A interface
+  desktop não pôde ser verificada visualmente neste ambiente.
+
+[2026-11-09] Nova aba abre a página inicial e Limpar tudo funciona
+Arquivos alterados: browser.py, _APP_/dialogs.py,
+  tests/test_tab_behavior.py, tests/test_history_clear_dialog.py,
+  nucleo/_DOC_PROJETO.txt e nucleo/_ULTIMOS_FIX.txt.
+Causa raiz: O botão + e Ctrl+T chamavam `new_tab`, que criava `about:blank`;
+  `_clear_all` comparava o resultado da confirmação com `QMessageBox` sem
+  importar essa classe em `dialogs.py`.
+Solução aplicada: `new_tab` agora chama uma única vez `_create_tab(home=True,
+  select=True)`, selecionando uma aba que carrega a página inicial. Ctrl+T
+  continua ligado à mesma ação e o fechamento individual não foi alterado.
+  `QMessageBox` foi importado para que "Limpar tudo" só apague histórico e
+  pesquisas após confirmação afirmativa; cancelar mantém os dados.
+Verificação: 9 testes de abas, 2 testes do diálogo de histórico e 13 testes de
+  armazenamento passaram; compileall e verificação de espaços em branco passaram.
+  A interação visual do diálogo Qt não pôde ser executada porque PySide6 não está
+  instalado neste ambiente.
+
+[2026-11-09] Reforçada a visibilidade dos controles de abas e concluída a auditoria
+Arquivos alterados: browser.py, _ULTILIDADES_/icones.py,
+  tests/test_native_window_controls.py, nucleo/_DOC_PROJETO.txt e
+  nucleo/auditoria_botoes.txt.
+Causa raiz: `qtawesome` é opcional; quando não está disponível, os ícones do
+  botão + e dos X podem ser vazios. A auditoria também precisava mapear os
+  comandos, métodos e destinos das superfícies da interface antes de reorganizar
+  a barra.
+Solução aplicada: O botão + usa o glifo simples `+` como ícone e mostra o caractere
+  de fallback quando o pacote de ícones não entrega um ícone; os X usam `×` como
+  fallback. O + não repete ações enquanto pressionado. As ligações existentes
+  continuam criando uma aba por clique, com X associado à própria aba. A auditoria
+  foi registrada em `nucleo/auditoria_botoes.txt`, junto com a proposta de duas
+  áreas e um defeito encontrado fora do escopo.
+Verificação: 15 testes focados de abas/janela passaram e compileall passou. Na
+  suíte completa, 195 passaram, 4 foram pulados, 1 falhou em uma asserção antiga
+  de favoritos e 1 não pôde importar porque PySide6 não está instalado. A
+  validação visual e os testes de movimento, Snap Layouts e redimensionamento
+  nativos ainda exigem Windows.
+
+[2026-11-09] Integrado encaixe nativo do Windows e botão de nova aba
+Arquivos alterados: browser.py, _APP_/Navegador/abas.py,
+  tests/test_native_window_controls.py, tests/test_tab_behavior.py,
+  novolayout.txt, .agents/memory/browser-window-layout.md
+Causa raiz: A janela sem moldura não expunha o botão personalizado de maximizar
+  nem as bordas ao hit-testing nativo do Windows; o botão de nova aba ficava no
+  canto da faixa em vez de acompanhar as abas.
+Solução aplicada: No Windows, habilitar estilos nativos de redimensionamento e
+  maximização e retornar HTMAXBUTTON/bordas em WM_NCHITTEST, mantendo a janela
+  sem barra de título. O botão “+” agora é filho da faixa de abas e é posicionado
+  logo após a aba visualmente mais à direita. O restante do layout não foi
+  reorganizado, conforme esclarecimento do usuário.
+Verificação: compileall e 31 testes focados passaram. Na suíte completa, 1 falha
+  antiga em favoritos continua e 1 teste Qt não importa porque PySide6 não está
+  instalado; 4 testes foram pulados. O comportamento real de Snap Layouts,
+  Win+Z/Win+setas e redimensionamento requer validação manual no Windows.
+
+[2026-11-09] Analisados diretório QtWebEngine e suporte a proxy
+Arquivos consultados: _APPDATA_/__init__.py, _APPDATA_/gerenciador.py,
+  _CONFIGURA_/__init__.py e browser.py; nenhum arquivo de código foi alterado.
+Resultado: O gerenciador do hen-Nave cria logs/config/cache/projetos; o perfil
+  normal configura seus dados persistentes na raiz do hen-Nave e o cache na
+  pasta cache. A subpasta `QtWebEngine` não é criada diretamente pelo gerenciador
+  e pode vir do caminho padrão do Qt ou de uma execução anterior. No Windows,
+  `hen-Navi` e `hen-nave` apontam para a mesma pasta, sem diferença por caixa.
+  Não foi possível confirmar o conteúdo da pasta local; a recomendação é
+  renomeá-la para backup com o navegador fechado e testar antes de excluir.
+  O código atual não configura proxy nem VPN; o QtWebEngine aceita as
+  configurações de proxy do Qt Network, mas nenhuma integração foi adicionada.
 
 [2026-11-09] Evitadas consultas DevTools a quadros já encerrados
 Arquivos alterados: browser.py, tests/test_security_tools_wiring.py,
@@ -475,5 +864,209 @@ Verificação: 9 testes de abas, 8 de sugestões, compileall e git diff --check
 Limite: A busca e o comportamento visual ainda precisam ser confirmados no
   Windows do usuário. O `CRASH_NATIVO` também contém um erro separado de download
   (`STATUS_DOWNLOAD_INICIO_MS` indefinido) que não é causado pela busca.
+
+[2026-11-09] Diagnóstico gráfico e coleta limpa de navegações
+Arquivos alterados: `_SERVICOS_/graphics_diagnostics.py`,
+  `_SERVICOS_/performance_diagnostics.py`, `_APP_/performance_panel.py`,
+  `main.py`, `browser.py`, `_CONFIGURA_/__init__.py`,
+  `tests/test_graphics_diagnostics.py`, testes de desempenho/integração,
+  `README.md` e documentação em `nucleo/`.
+Escopo: O app captura em memória apenas campos permitidos da categoria oficial
+  `qt.webenginecontext`. Ao clicar em Diagnosticar GPU, consulta WebGL e a
+  disponibilidade da API WebGPU na página atual e apresenta o renderer se o
+  navegador o revelar. Não lê URL/conteúdo, não abre `chrome://gpu` e não muda
+  flags. O painel também pode zerar as amostras de navegação sem apagar a
+  medição de inicialização ou histórico.
+Verificação: 19 testes de diagnóstico/desempenho e 19 testes de integração da
+  interface passaram; compileall e `git diff --check` passaram. Na suíte completa
+  de 194 testes, houve um erro de importação porque PySide6 não está instalado,
+  uma falha no teste de favoritos fora deste escopo e quatro testes pulados.
+Limites: WebGL/WebGPU disponíveis não provam aceleração do compositor. A
+  classificação fica inconclusiva quando não há renderer confiável. O estado
+  real do GPU/driver e a interface ainda precisam ser validados na cópia Windows;
+  não foi criado um benchmark antes/depois e nenhuma melhoria de velocidade foi
+  alegada.
+
+[2026-11-09] Atualizada a especificação do novo layout
+Arquivos alterados: `novolayout.txt` e `.agents/memory/`.
+Escopo: A faixa superior mantém o ícone/menu à esquerda, as abas aparecem ao
+  lado dele e o botão “+” fica junto à última aba. Endereço, navegação e tarefas
+  passam para a linha inferior; os controles da janela continuam à direita e o
+  visual permanece sem a barra nativa.
+Estado: O usuário confirmou que essa é a ordem desejada. Nesta etapa foi
+  atualizado somente o documento de layout; nenhuma alteração de código foi
+  feita. A implementação e outros ajustes serão alinhados após as próximas
+  orientações do usuário.
+
+[2026-11-09] Corrigidas as abas novas e a confirmação de limpeza do histórico
+Arquivos alterados nesta correção: `browser.py`, `_APP_/Navegador/abas.py`,
+`_APP_/dialogs.py`, `tests/test_tab_behavior.py`,
+`tests/test_tab_bar_visibility_qt.py`, `tests/test_history_clear_dialog.py`,
+`tests/test_native_window_controls.py`, `tests/test_capture_wiring.py`,
+`nucleo/_DOC_PROJETO.txt` e este registro.
+Escopo: O botão + e Ctrl+T criam uma única aba selecionada já na página inicial;
+não aparece aba `about:blank` nem uma segunda aba Início. A posição do botão +
+reservou espaço após a última aba, inclusive com uma só, e continua mudando ao
+adicionar abas. Cada aba mantém seu próprio X. A casinha saiu da barra visual;
+Alt+Home continua disponível sem ocupar espaço. A confirmação de “Limpar tudo”
+usa `QMessageBox` importado corretamente e só apaga após confirmação afirmativa.
+Nenhuma barra foi reorganizada nem outras funcionalidades removidas.
+Diagnóstico: A faixa Qt terminava no limite da própria aba, sem largura sobrando
+para o botão; a configuração do widget de abas também fazia a faixa voltar a se
+expandir. A correção reserva o tamanho do botão na dica de tamanho e reaplica o
+modo não expansível após configurar abas fecháveis/móveis.
+Verificação: 2 testes Qt offscreen passaram, cobrindo uma e três abas; testes de
+abas e histórico passaram na suíte completa. `compileall` e verificação de
+espaços em branco passaram. A suíte completa executou 205 testes: 201 passaram,
+3 erros de importação QtWebEngine por `libgssapi_krb5.so.2` ausente neste
+ambiente e 1 falha já existente no teste de menu de favoritos, que espera uma
+chamada antiga não usada pelo código atual.
+Limite visual: O botão + foi verificado na faixa de abas Qt offscreen. A janela
+completa não pôde ser renderizada porque o import do QtWebEngine exige a
+biblioteca nativa `libgssapi_krb5.so.2`, ausente no ambiente; a ausência da
+casinha na barra foi confirmada pelos testes de conexão do toolbar.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Reorganizados os controles da barra superior e lateral
+Arquivos alterados: browser.py, _APP_/barra_direita_tools/, _CONFIGURA_/theme_engine.py,
+  tests/test_capture_wiring.py, tests/test_download_history_wiring.py,
+  tests/test_history_clear_dialog.py, tests/test_native_window_controls.py,
+  nucleo/auditoria_botoes.txt e nucleo/_DOC_PROJETO.txt.
+Escopo: Escudo, economia de dados e favoritos foram colocados ao lado do endereço,
+  seguidos de separador e controles Fechar, Minimizar e Maximizar/restaurar.
+  As outras ferramentas mantêm suas ações e painéis na barra vertical. Downloads,
+  captura e diálogos de histórico/favoritos foram organizados no pacote da barra
+  direita, sem cópias nos caminhos antigos. A coluna tem largura fixa e a área
+  central recebe o restante da linha.
+Validação: os testes direcionados de captura/layout (21), downloads/histórico (7),
+  confirmação de histórico (2) e controles nativos (6) passaram. `compileall`
+  passou. Na suíte geral (207 testes), houve 6 testes pulados, 1 falha já existente
+  em uma asserção antiga sobre Favoritos e 1 erro de importação por PySide6 ausente.
+Limite: a interface desktop não foi aberta neste ambiente; a verificação visual
+  no Windows atualizado ainda está pendente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Corrigido o espaço lateral e movidos os controles ao fim da barra
+Arquivos alterados: browser.py, _APP_/barra_direita_tools/sidebar.py,
+  _APP_/main_window.py, _CONFIGURA_/__init__.py, _CONFIGURA_/theme_engine.py,
+  testes de layout e controles de janela, README.md, nucleo/auditoria_botoes.txt,
+  nucleo/_DOC_PROJETO.txt e .agents/memory/browser-window-layout.md.
+Escopo: Os controles Minimizar, Maximizar/restaurar e Fechar agora são o último
+  grupo funcional da barra vertical, após ferramentas e manutenção. O hit-test
+  nativo continua encaminhando o botão de maximizar aos Snap Layouts do Windows.
+  A versão do estado da janela foi elevada para descartar posições de barras
+  antigas que poderiam reservar a área vazia à direita. A faixa de abas e os
+  botões da página no topo não foram alterados.
+Verificação: 21 testes de captura/layout e 6 de controles nativos passaram;
+  compileall e verificações de sintaxe passaram. A suíte geral executou 207 testes:
+  6 ignorados, 1 falha já conhecida na asserção antiga de Favoritos e 1 erro porque
+  PySide6 não está instalado. A interface Windows não pôde ser aberta neste ambiente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Retornados os controles da janela à barra horizontal
+Arquivos alterados: browser.py, _APP_/barra_direita_tools/sidebar.py,
+  _APP_/main_window.py, _CONFIGURA_/__init__.py, testes de layout e controles,
+  README.md, nucleo/auditoria_botoes.txt, nucleo/_DOC_PROJETO.txt e
+  .agents/memory/browser-window-layout.md.
+Escopo: Minimizar, Maximizar/restaurar e Fechar voltaram para a barra horizontal,
+  após os três controles de página e um separador. Os controles agora são botões
+  diretos da barra de navegação, não uma subbarra nem parte da barra de ferramentas.
+  A versão do estado salvo foi elevada para descartar layout lateral antigo.
+Verificação: 21 testes de captura/layout e 6 testes de controles nativos passaram;
+  compileall e verificações de sintaxe passaram. O app não pôde ser aberto para
+  conferência visual porque PySide6 não está instalado neste ambiente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Ajustada a ordem dos controles e adicionado encaixe de janelas
+Arquivos alterados: browser.py, _ULTILIDADES_/icones.py, _CONFIGURA_/__init__.py,
+  _CONFIGURA_/theme_engine.py, tests/test_capture_wiring.py,
+  tests/test_native_window_controls.py, README.md, nucleo/auditoria_botoes.txt,
+  nucleo/_DOC_PROJETO.txt e .agents/memory/browser-window-layout.md.
+Escopo: A barra superior mostra os três controles de página, separador e os quatro
+  controles de janela na ordem Minimizar, Maximizar/restaurar, Layouts de encaixe e
+  Fechar. O novo botão de encaixe abre opções funcionais para metade esquerda/direita
+  e os quatro quadrantes da tela atual.
+Verificação: 21 testes de captura/layout, 6 de controles nativos e 6 de temas
+  passaram; compileall e verificações de sintaxe passaram. A interface não foi
+  aberta neste ambiente porque PySide6 não está instalado.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Removido o botão redundante de layouts de encaixe
+Arquivos alterados: browser.py, _ULTILIDADES_/icones.py, _CONFIGURA_/__init__.py,
+  testes de captura/layout e controles nativos, README.md, nucleo/auditoria_botoes.txt,
+  nucleo/_DOC_PROJETO.txt e .agents/memory/browser-window-layout.md.
+Escopo: Ficaram apenas Minimizar, Maximizar/restaurar e Fechar, nessa ordem, após
+  o separador. Maximizar continua alternando entre janela normal e maximizada; o
+  botão separado de metade/quadrantes foi removido. O hit-test do Windows para os
+  Snap Layouts nativos ao passar o mouse sobre Maximizar foi preservado.
+Verificação: 21 testes de captura/layout, 6 de controles nativos e 6 de temas
+  passaram; compileall passou. A interface não foi aberta porque PySide6 não está
+  instalado neste ambiente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Substituída a pega de redimensionamento pelo grupo de manutenção
+Arquivos alterados: _APP_/barra_direita_tools/sidebar.py, browser.py,
+  _CONFIGURA_/__init__.py, testes de captura/layout e controles nativos,
+  README.md, nucleo/auditoria_botoes.txt e .agents/memory/browser-window-layout.md.
+Escopo: Removido o QSizeGrip da barra direita. Depois do espaçador e separador,
+  o rodapé agora mostra Limpar cache e Abrir pasta de dados, nessa ordem. O
+  redimensionamento pelas bordas da janela permanece disponível.
+Verificação: 21 testes de captura/layout, 7 de controles nativos e 6 de temas
+  passaram; compileall passou. A interface não foi aberta porque PySide6 não está
+  instalado neste ambiente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-09] Unificada a faixa de favoritos com status e desempenho
+Arquivos alterados: browser.py, testes de status, favoritos e desempenho,
+  README.md, nucleo/_DOC_PROJETO.txt e .agents/memory/browser-window-layout.md.
+Escopo: Removida a linha de status em largura total. Favoritos ficam à esquerda;
+  no espaço compacto à direita, CPU/RAM aparece normalmente e mensagens
+  temporárias de carregamento/aviso a substituem até o timeout. GPU e tráfego de
+  rede por navegador não são medidos pelo monitor atual e não foram apresentados
+  como se fossem métricas disponíveis.
+Verificação: 21 testes de captura/layout, 5 de favoritos/status, 7 de controles
+  nativos, 6 de temas e 10 de desempenho passaram; compileall passou. A interface
+  não foi aberta porque PySide6 não está instalado neste ambiente.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-10] Continuação da organização do Explorador e da barra direita
+Arquivos alterados: _APP_/barra_direita_tools/ai_assistant.py,
+  _APP_/ai_assistant.py, _APP_/barra_direita_tools/download_video.py,
+  _APP_/download_video.py, _APP_/barra_direita_tools/manager.py,
+  _APP_/barra_direita_tools/sidebar.py, _APP_/captura.py, browser.py,
+  testes de barra/captura e PLANO_IMPLEMENTACAO_EXPLORADOR_BROWSER.txt.
+Escopo: AiAssistantDock e VideoDownloadDock agora têm implementação canônica no
+  pacote da barra e mantêm os imports antigos por compatibilidade. RightToolsManager
+  cria o CaptureManager e conecta seus sinais por callbacks; o arquivo antigo de
+  captura só reexporta a implementação canônica. A tradução da barra recebe
+  callback explícito em vez de acessar diretamente a janela.
+Verificação: 262 testes passaram, 7 foram pulados; compileall passou. PySide6 não
+  está instalado, portanto a janela e as interações Qt não foram executadas.
+Estado: implementação parcial. A extração ampla de browser.py e a migração de
+  ExplorerTab e PageInspectorDock continuam pendentes; a reprodução de vídeo e a
+  validação final ainda dependem do Windows.
+
+════════════════════════════════════════════════════════════════════════════════
+
+[2026-11-10] Separados controles de janela e ciclo do perfil anônimo
+Arquivos alterados: _BROWSER_/window_controls.py,
+  _BROWSER_/profile_lifecycle.py, _BROWSER_/__init__.py, browser.py,
+  testes de controles, captura e imports.
+Escopo: TabCloseButton, BrandMenuButton e o fallback de ícone foram extraídos
+  para o pacote do navegador. AnonymousProfileLease também foi movido para um
+  módulo de ciclo de vida e recebe a configuração do perfil por callback,
+  evitando dependência direta do controlador.
+Verificação: 262 testes passaram, 7 foram pulados; compileall passou. A janela
+  não foi executada porque PySide6 não está instalado neste ambiente.
+Estado: browser.py ainda tem cerca de 4.120 linhas; o controlador, a janela e os
+  grupos de abas/navegação/painéis precisam de extração adicional.
 
 ════════════════════════════════════════════════════════════════════════════════

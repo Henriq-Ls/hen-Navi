@@ -50,6 +50,56 @@ class ThemeConfigurationTests(unittest.TestCase):
                 self.assertNotRegex(styles, r":\s*;")
                 self.assertNotRegex(startpage, r":\s*;")
                 self.assertNotIn("None", styles + startpage)
+                self.assertIn(
+                    f'QTabBar::tab {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QTabBar::tab:selected {{\n'
+                    f'    background: {TEMAS[theme_id]["surface"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QToolBar#browserSidebarToolbar {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QToolBar#browserSidebarToolbar QToolButton {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QWidget#favoritesAndStatusFooter {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QWidget#sidePanelContainer {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QWidget#sidePanelHeader {{\n'
+                    f'    background: {TEMAS[theme_id]["surface"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QStackedWidget#rightSidePanelStack {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QStatusBar {{\n'
+                    f'    background: {TEMAS[theme_id]["background"]};',
+                    styles,
+                )
+                self.assertIn(
+                    f'QStatusBar QLabel {{ '
+                    f'background: {TEMAS[theme_id]["background"]}; }}',
+                    styles,
+                )
 
     def test_invalid_theme_is_rejected_and_version_is_updated(self):
         self.assertEqual(obter_tema()["name"], TEMAS[TEMA_PADRAO]["name"])
@@ -83,6 +133,22 @@ class ThemeConfigurationTests(unittest.TestCase):
         self.assertEqual(theme["accent"], "#E36A4D")
         self.assertEqual(theme["icon"], "#F0A020")
         self.assertEqual(theme["surface"], TEMAS[TEMA_PADRAO]["surface"])
+        self.assertIn(
+            "QTabBar::tab {\n    background: #123456;",
+            styles,
+        )
+        self.assertIn(
+            f'QTabBar::tab:selected {{\n'
+            f'    background: {theme["surface"]};',
+            styles,
+        )
+        self.assertIn(
+            "QWidget#favoritesAndStatusFooter {\n"
+            "    background: #123456;",
+            styles,
+        )
+        self.assertIn("QStatusBar {\n    background: #123456;", styles)
+        self.assertIn("QStatusBar QLabel { background: #123456; }", styles)
         self.assertIn('font-family: "DejaVu Sans"', styles)
         self.assertIn('body { font-family: "Liberation Serif"', home_css)
         self.assertIn("--bg: #123456;", home_html)
@@ -94,13 +160,41 @@ class ThemeConfigurationTests(unittest.TestCase):
                 "accent": "red",
                 "font_ui": 'Sans"; color: red; /*',
                 "font_content": "Noto Sans",
+                "font_size_px": 25,
+                "tab_height_px": 40,
+                "sidebar_icon_size_px": True,
+                "footer_height_px": 42,
                 "unexpected": "#FFFFFF",
             }
         )
         self.assertEqual(
             normalized,
-            {"font_content": "Noto Sans"},
+            {
+                "font_content": "Noto Sans",
+                "tab_height_px": 40,
+                "footer_height_px": 42,
+            },
         )
+
+    def test_custom_theme_metrics_are_saved_and_scale_related_controls(self):
+        custom = {
+            "font_size_px": 20,
+            "tab_height_px": 34,
+            "sidebar_icon_size_px": 22,
+            "footer_height_px": 32,
+        }
+        theme = obter_tema(TEMA_PERSONALIZADO, custom_theme=custom)
+        styles = stylesheet_for_theme(
+            TEMA_PERSONALIZADO,
+            custom_theme=custom,
+        )
+
+        self.assertEqual(theme["font_size_px"], 20)
+        self.assertEqual(theme["tab_height_px"], 34)
+        self.assertEqual(theme["sidebar_icon_size_px"], 22)
+        self.assertEqual(theme["footer_height_px"], 32)
+        self.assertIn("font-size: 20px;", styles)
+        self.assertIn("padding: 6px 10px;", styles)
 
 
 if __name__ == "__main__":

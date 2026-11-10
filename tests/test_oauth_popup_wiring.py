@@ -16,6 +16,15 @@ class OAuthPopupWiringTests(unittest.TestCase):
             for node in cls.tree.body
             if isinstance(node, ast.ClassDef)
         }
+        cls.page_source = (
+            PROJECT_ROOT / "_BROWSER_" / "page.py"
+        ).read_text(encoding="utf-8")
+        page_tree = ast.parse(cls.page_source)
+        cls.page_class = next(
+            node
+            for node in page_tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "BrowserPage"
+        )
 
     def _method_source(self, class_name, method_name):
         class_node = self.classes[class_name]
@@ -27,7 +36,12 @@ class OAuthPopupWiringTests(unittest.TestCase):
         return ast.get_source_segment(self.source, method)
 
     def test_page_forwards_requested_window_type(self):
-        source = self._method_source("BrowserPage", "createWindow")
+        method = next(
+            node
+            for node in self.page_class.body
+            if isinstance(node, ast.FunctionDef) and node.name == "createWindow"
+        )
+        source = ast.get_source_segment(self.page_source, method)
         self.assertIn(
             "self.browser_window._create_popup_page(window_type)",
             source,

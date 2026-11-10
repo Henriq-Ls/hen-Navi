@@ -6,14 +6,15 @@ from collections.abc import Mapping
 from _CONFIGURA_.temas import (
     CHAVES_CORES_PERSONALIZADAS,
     CHAVES_FONTES_PERSONALIZADAS,
+    LIMITES_METRICAS_PERSONALIZADAS,
     TEMAS,
     TEMA_PADRAO,
     TEMA_PERSONALIZADO,
 )
 
 
-def normalizar_tema_personalizado(values: object) -> dict[str, str]:
-    """Mantém somente cores e fontes seguras para CSS/QSS."""
+def normalizar_tema_personalizado(values: object) -> dict[str, str | int]:
+    """Mantém cores, fontes e métricas personalizadas dentro de limites seguros."""
     if not isinstance(values, Mapping):
         return {}
 
@@ -33,6 +34,15 @@ def normalizar_tema_personalizado(values: object) -> dict[str, str]:
             and all(character.isalnum() or character in " -_." for character in family)
         ):
             normalized[key] = family
+
+    for key, (minimum, maximum) in LIMITES_METRICAS_PERSONALIZADAS.items():
+        value = values.get(key)
+        if (
+            isinstance(value, int)
+            and not isinstance(value, bool)
+            and minimum <= value <= maximum
+        ):
+            normalized[key] = value
     return normalized
 
 
@@ -109,6 +119,18 @@ def stylesheet_for_theme(
 ) -> str:
     """Produz um stylesheet completo sem depender de Qt."""
     theme = obter_tema(theme_id, custom_theme=custom_theme)
+    tab_height = max(
+        theme["tab_height_px"],
+        theme["font_size_px"] + 10,
+    )
+    tab_vertical_padding = max(
+        0,
+        (
+            tab_height
+            - theme["font_size_px"]
+            - 2 * theme["border_width_px"]
+        ) // 2,
+    )
     private_rules = ""
     if private:
         private_rules = f'''
@@ -154,13 +176,13 @@ QTabWidget::pane {{
     border: {theme["border_width_px"]}px solid {theme["border"]};
 }}
 QTabBar::tab {{
-    background: {theme["surface"]};
+    background: {theme["background"]};
     color: {theme["text_secondary"]};
-    padding: {theme["spacing_px"]}px {theme["spacing_px"] * 2}px;
+    padding: {tab_vertical_padding}px {theme["spacing_px"] * 2}px;
     border: {theme["border_width_px"]}px solid {theme["border"]};
 }}
 QTabBar::tab:selected {{
-    background: {theme["background"]};
+    background: {theme["surface"]};
     color: {theme["text"]};
     border-bottom: {theme["border_width_px"]}px solid {theme["accent"]};
 }}
@@ -171,12 +193,25 @@ QToolBar {{
     spacing: {theme["spacing_px"]}px;
     padding: {theme["spacing_px"]}px;
 }}
-QToolBar#windowControlsToolbar {{
-    background: {theme["surface"]};
-    border-bottom: none;
+QToolBar#navigationToolbar::separator {{
+    background: {theme["border_strong"]};
+    width: {theme["border_width_px"]}px;
+    height: 22px;
+    margin: 2px {theme["spacing_px"]}px;
+}}
+QToolBar#browserSidebarToolbar {{
+    background: {theme["background"]};
     border-left: {theme["border_width_px"]}px solid {theme["border"]};
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
     spacing: 2px;
-    padding: 0;
+    padding: {theme["spacing_px"]}px 0;
+}}
+QToolBar#browserSidebarToolbar::separator {{
+    background: {theme["border_strong"]};
+    height: {theme["border_width_px"]}px;
+    margin: {theme["spacing_px"]}px 6px;
 }}
 QToolButton {{
     background: transparent;
@@ -184,6 +219,15 @@ QToolButton {{
     border: {theme["border_width_px"]}px solid transparent;
     padding: {theme["spacing_px"]}px {theme["spacing_px"] + 2}px;
     border-radius: {theme["control_radius_px"]}px;
+}}
+QToolBar#browserSidebarToolbar QToolButton {{
+    background: {theme["background"]};
+}}
+QToolBar#browserSidebarToolbar QToolButton:hover {{
+    background: {theme["surface_alt"]};
+}}
+QToolBar#browserSidebarToolbar QToolButton:pressed {{
+    background: {theme["accent_active"]};
 }}
 QToolButton#brandMenuButton {{
     padding: {theme["spacing_px"]}px {theme["spacing_px"] * 2}px;
@@ -200,6 +244,11 @@ QToolButton#closeWindowButton:hover {{
     background: {theme["danger"]};
     border-color: {theme["danger"]};
 }}
+QWidget#sidePanelContainer {{
+    background: {theme["background"]};
+    border-left: {theme["border_width_px"]}px solid {theme["border"]};
+}}
+QWidget#sidePanelTabsInset {{ background: {theme["background"]}; }}
 QWidget#sidePanelHeader {{
     background: {theme["surface"]};
     border-bottom: {theme["border_width_px"]}px solid {theme["border"]};
@@ -207,6 +256,19 @@ QWidget#sidePanelHeader {{
 QLabel#sidePanelTitle {{
     color: {theme["text_secondary"]};
     font-weight: bold;
+}}
+QStackedWidget#rightSidePanelStack {{
+    background: {theme["background"]};
+    border: none;
+}}
+QDockWidget, QDockWidget::widget {{
+    background: {theme["background"]};
+    border: none;
+}}
+QToolButton#closeSidePanelButton {{
+    color: {theme["muted"]};
+    background: transparent;
+    border: none;
 }}
 QToolButton#closeSidePanelButton:hover {{
     background: {theme["danger"]};
@@ -251,6 +313,10 @@ QPlainTextEdit#inspectorMarkup {{
 QLabel#shortcutKey {{ color: {theme["accent"]}; font-weight: bold; }}
 QLabel#noteIndicator {{ color: {theme["success"]}; }}
 QLabel#loadingOverlayLabel {{ color: {theme["text"]}; }}
+QWidget#favoritesAndStatusFooter {{
+    background: {theme["background"]};
+    border: none;
+}}
 QMenuBar {{
     background: {theme["surface"]};
     color: {theme["text"]};
@@ -267,10 +333,12 @@ QMenu::item {{
              {theme["spacing_px"]}px {theme["spacing_px"] * 2}px;
 }}
 QStatusBar {{
-    background: {theme["surface"]};
+    background: {theme["background"]};
     color: {theme["text_secondary"]};
-    border-top: {theme["border_width_px"]}px solid {theme["border"]};
+    border: none;
 }}
+QStatusBar::item {{ border: none; }}
+QStatusBar QLabel {{ background: {theme["background"]}; }}
 QDialog, QGroupBox {{
     background: {theme["background"]};
     color: {theme["text"]};
@@ -294,6 +362,94 @@ QListWidget::item {{
     border-bottom: {theme["border_width_px"]}px solid {theme["border"]};
 }}
 QListWidget::item:selected {{ background: {theme["accent_active"]}; }}
+QFrame#explorerToolbar, QFrame#explorerFooter {{
+    background: {theme["surface"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
+QToolButton#explorerNavigationButton {{
+    background: transparent;
+    color: {theme["text"]};
+    border: none;
+    padding: {theme["spacing_px"]}px;
+}}
+QToolButton#explorerNavigationButton:hover {{
+    background: {theme["surface_alt"]};
+}}
+QListWidget#explorerPlaces {{
+    background: {theme["background"]};
+    color: {theme["text"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
+QListWidget#explorerPlaces::item:selected {{
+    background: {theme["accent_active"]};
+    color: {theme["text"]};
+}}
+QFrame#explorerPlacesSeparator {{
+    background: {theme["border"]};
+    border: none;
+    max-height: 1px;
+    min-height: 1px;
+    margin: 4px 8px;
+}}
+QFrame#explorerPreviewPanel {{
+    background: {theme["surface"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
+QLabel#explorerPreviewTitle {{
+    color: {theme["text"]};
+    font-weight: bold;
+}}
+QLabel#explorerPreviewImage {{
+    background: {theme["background"]};
+    color: {theme["text_secondary"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
+QLabel#explorerPreviewDetails {{ color: {theme["text"]}; }}
+QTreeView#explorerFileView {{
+    background: {theme["field"]};
+    alternate-background-color: {theme["background"]};
+    color: {theme["text"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+}}
+QTreeView#explorerFileView::item:selected {{
+    background: {theme["accent_active"]};
+    color: {theme["text"]};
+}}
+QHeaderView::section {{
+    background: {theme["surface"]};
+    color: {theme["text_secondary"]};
+    border: none;
+    border-bottom: {theme["border_width_px"]}px solid {theme["border"]};
+    padding: {theme["spacing_px"]}px;
+}}
+QComboBox#explorerPathInput, QLineEdit#explorerSearchInput,
+QLineEdit#explorerFilenameInput, QComboBox#explorerFilterCombo {{
+    background: {theme["field"]};
+    color: {theme["text"]};
+    border: {theme["border_width_px"]}px solid {theme["border"]};
+    border-radius: {theme["control_radius_px"]}px;
+    padding: {theme["spacing_px"]}px;
+}}
+QComboBox#explorerPathInput:focus, QLineEdit#explorerSearchInput:focus,
+QLineEdit#explorerFilenameInput:focus, QComboBox#explorerFilterCombo:focus {{
+    border-color: {theme["accent"]};
+}}
+QPushButton#explorerPrimaryButton {{
+    background: {theme["accent"]};
+    color: {theme["text"]};
+    border-color: {theme["accent"]};
+    font-weight: bold;
+}}
+QPushButton#explorerCancelButton {{
+    background: {theme["surface_alt"]};
+    color: {theme["text"]};
+}}
+QLabel#explorerStatusLabel {{ color: {theme["text_secondary"]}; }}
 QPushButton {{
     background: {theme["surface_alt"]};
     color: {theme["text"]};

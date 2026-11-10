@@ -9,6 +9,10 @@ persistentemente guardado em `%APPDATA%/hen-nave` no Windows ou `~/.hen-nave`
 no Linux/macOS. O produto e a documentação usam o nome hen-Nave; não renomeie
 a pasta física do projeto sem pedido explícito.
 
+Antes de alterar os seletores de arquivos ou pastas, leia o arquivo raiz
+`EXPLORER_INTEGRACAO.txt`: ele documenta a origem do Explorer do template e a
+regra de preservar o comportamento existente do hen-Nave.
+
 Janelas anônimas usam perfil temporário, não gravam histórico, cookies ou
 sessão de abas e não entram na sessão restaurada. Favoritos continuam
 acessíveis e suas alterações são persistentes. Anotações são desativadas;
@@ -22,6 +26,7 @@ MÓDULOS E RESPONSABILIDADES
 
 _CONFIGURA_/
   Fonte única de textos visíveis, cores, atalhos e dimensões de interface.
+  Define também limites do Explorador local e a lista inicial de nomes ignorados.
 
 _LOGS_/
   Logger singleton. Gera LOG_GERAL.log a cada sessão.
@@ -41,7 +46,7 @@ _THREADS_/
   Base class ThreadSegura e gerenciador central ThreadManager.
   Todas as threads do projeto herdam ThreadSegura; exceções em run() são
   capturadas e registradas.
-  Inclui o worker cancelável do assistente de página.
+  Inclui os workers canceláveis do assistente de página e do Explorador local.
 
 _APP_/
   Interface da janela principal, painéis de anotações/IA e diálogos do
@@ -52,34 +57,65 @@ _APP_/
   O preenchimento continua sendo iniciado pelo usuário.
   O botão de tradução da barra usa o provedor ativo e apresenta a resposta no
   painel da IA, sem substituir a página original.
-  dialogs.py contém as janelas de histórico e favoritos; o atalho lateral de
-  Histórico reutiliza a janela existente e não se confunde com Downloads.
+  barra_direita_tools/dialogs.py contém as janelas de histórico e favoritos;
+  Histórico e Downloads usam ações existentes na barra vertical direita, sem
+  cópias no menu principal. _APP_/barra_direita_tools/sidebar.py cria a barra
+  vertical de ferramentas e manutenção; escudo, economia de dados e favoritos
+  ficam na barra horizontal junto ao endereço. Depois dos três, um separador
+  precede Minimizar, Maximizar/restaurar e Fechar; os controles
+  de janela não ficam na coluna vertical. browser.py conecta ambos os grupos às
+  ações existentes, aos painéis e ao estado da página. Os painéis laterais
+  compartilham um único cabeçalho com título e fechamento, alinhado abaixo da
+  faixa de abas; as barras de título internas dos painéis não são exibidas.
+  O fundo e a separação visual do card usam as cores do tema ativo. O menu
+  principal agrupa diagnósticos, segurança/privacidade do site, senhas, painel de
+  desempenho e ações do bloqueador em “Segurança e desempenho”; “Configurações”
+  fica separado no fim do menu.
   startpage.py e private_startpage.py criam as páginas iniciais normal e anônima.
   O formulário da página inicial envia a busca pelo QWebChannel e a execução é
   postergada para fora do callback de navegação do QtWebEngine.
-  browser_downloads.py mantém o painel do histórico comum e temporário anônimo,
+  explorer_tab.py fornece a aba nativa local, com árvore hierárquica expansível,
+  seleção recursiva, prévia, cópia e salvamento da estrutura de nomes e contagens.
+  barra_direita_tools/browser_downloads.py mantém o painel do histórico comum e temporário anônimo,
   com progresso ao vivo e estados de conclusão, cancelamento e falha.
+  barra_direita_tools/captura.py fornece as ações funcionais de captura visível,
+  captura completa e gravação em PDF.
   Navegador/abas.py configura abas móveis e fecháveis. Início é uma página comum
-  em uma aba normal; a casinha carrega Início na aba atual e o botão + abre outra
-  aba Início.
+  em uma aba normal; Alt+Home carrega Início na aba atual sem botão de casinha na
+  barra. A faixa custom reserva o espaço do botão + logo após a última aba,
+  inclusive quando há uma única, e reposiciona o botão quando a faixa aparece ou
+  as abas mudam. O + cria uma única aba selecionada que carrega a página inicial.
+  Ctrl+T mantém esse comportamento; cada aba continua com seu próprio botão de
+  fechar.
   inspector.py fornece o inspetor DOM próprio; security_tools.py fornece o
   DevTools do Chromium com controle distinto e diagnóstico manual de endereço,
   cabeçalhos HTTP e certificado TLS. site_privacy.py consulta as permissões
-  conhecidas e limpa dados da origem aberta. performance_panel.py exibe detalhes
-  de desempenho; performance_status.py mantém CPU/RAM compactos na barra de status
-  e compartilha uma amostragem por aplicativo.
+  conhecidas e limpa dados da origem aberta. performance_panel.py exibe CPU/RAM,
+  tempos, estado gráfico e permite zerar amostras de navegação; performance_status.py
+  mantém CPU/RAM compactos no canto direito da faixa inferior de favoritos.
+  Mensagens temporárias de carregamento/aviso substituem as métricas nesse espaço
+  e, após o timeout, as métricas voltam; a amostragem é compartilhada pelo app.
 
 _SERVICOS_/
   Serviços sem interface: adblocker.py/adblock_rules.py, ai_service.py,
   ai_provider_store.py, secure_keyring.py, web_credential_store.py e
   security_analysis.py e video_download.py. Senhas de sites e chaves de IA usam
   o keyring do sistema; os arquivos de configuração guardam somente metadados.
+  explorer_filesystem.py lista e conta metadados, aplica limites e valida a raiz
+  antes de cada leitura; não segue links simbólicos nem pontos de reanálise.
+  explorer_settings.py persiste os nomes ignorados na pasta config do AppData.
   performance_diagnostics.py registra durações e mantém estatísticas agregadas
-  da sessão; performance_status.py usa psutil para amostrar CPU/memória do
+  da sessão; graphics_diagnostics.py filtra em memória os dados gráficos
+  publicados pelo QtWebEngine e oferece uma consulta WebGL/WebGPU local acionada
+  pelo usuário. performance_status.py usa psutil para amostrar CPU/memória do
   processo e filhos Chromium a cada 3 segundos, sem URLs ou títulos de páginas.
+  O painel de desempenho também mostra os IPs locais e contadores de tráfego
+  agregados de todas as interfaces; não consulta serviços externos nem grava
+  essas informações.
 
 _ULTILIDADES_/
-  Ícones, pop-ups padronizados e funções reutilizáveis de URL, captura e host.
+  Ícones, pop-ups padronizados, Explorer próprio de arquivos/pastas e funções
+  reutilizáveis de URL, captura e host.
 
 _CONFIGURA_/theme_engine.py
   Geração dos estilos Qt/CSS usando os temas configurados.
@@ -87,7 +123,14 @@ _CONFIGURA_/theme_engine.py
 browser.py
   Controlador de janelas/perfis, páginas WebEngine, downloads, bloqueador,
   zoom, busca, tela cheia, persistência da sessão e integração dos painéis
-  laterais. A barra de status mantém uma leitura compacta de CPU/RAM à direita.
+  laterais. A montagem visual da barra vertical está separada em
+  _APP_/barra_direita_tools/sidebar.py. A barra superior conserva marca,
+  navegação e endereço, seguidos por escudo, economia de dados e favoritos; um
+  separador antecede Minimizar, Maximizar/restaurar e Fechar.
+  A barra vertical reúne captura, ferramentas de página, painéis e manutenção. Sua largura é fixa e
+  a área central usa o restante do espaço disponível, sem painel vazio à direita.
+  Favoritos e a mensagem/desempenho compartilham a faixa inferior: CPU/RAM aparece
+  à direita quando não há aviso temporário.
   O botão de tradução na barra solicita a tradução do texto visível
   usando o provedor de IA ativo. Downloads comuns são persistidos; downloads
   anônimos ficam em memória. Links de download que abrem uma aba temporária
@@ -131,6 +174,11 @@ _ULTILIDADES_/site_utils.py
 _APP_/private_startpage.py
   Criação e limpeza de arquivos temporários da página inicial anônima.
 
+_APP_/explorer_tab.py
+  Aba Qt nativa do Explorador local, com árvore hierárquica, expansão sob demanda,
+  seleção recursiva e prévia/cópia da estrutura textual. As leituras rodam no QRunnable
+  _THREADS_/explorer_worker.py.
+
 _APP_/startpage.py
   HTML local da página inicial; escapa valores dinâmicos e aceita somente
   URLs HTTP(S) nos links. Cards exibem favicons PNG já armazenados localmente e
@@ -141,7 +189,7 @@ _ULTILIDADES_/utils.py
   Valida a barra de endereço e converte texto livre no buscador padrão escolhido
   em Configurações (DuckDuckGo, Google ou Bing).
 
-_APP_/dialogs.py
+_APP_/barra_direita_tools/dialogs.py
   Janelas de histórico e favoritos com busca, abertura e remoção.
 
 _APP_/favorites_bar.py
@@ -158,11 +206,16 @@ _APP_/search_suggestions.py e _SERVICOS_/search_suggestions.py
 _ULTILIDADES_/popups.py
   Ponto único para configurar e exibir mensagens, avisos, erros e confirmações.
 
+_ULTILIDADES_/explorer.py
+  Seletor e gerenciador de arquivos/pastas usado pelos fluxos do navegador em vez
+  dos diálogos do sistema; guarda a última localização no AppData normal.
+
 tests/
   Testes unittest para resolução de endereços, SQLite, HTML inicial, bloqueio,
   anotações, páginas temporárias, serviços de IA com HTTP simulado, integração
   estática dos painéis e do botão de tradução, registro de exceções em threads e
-  medições locais de desempenho e integração do painel lateral de desempenho.
+  medições locais de desempenho, integração do painel lateral e núcleo/wiring do
+  Explorador. Os testes de integração do Explorador não precisam do Qt.
 
 _ULTILIDADES_/
   Ícones, popups e ferramentas reutilizáveis.
@@ -192,13 +245,19 @@ DECISÕES DE ARQUITETURA
     salva sua lista antes de ser removida do controlador.
   - O código nunca desativa o sandbox do Chromium nem concede acesso local
     a páginas remotas.
-  - Uploads usam um QFileDialog Qt modal e não nativo, em português, com modos
-    para arquivo, múltiplos arquivos, pasta e salvar. A lista é ordenada por nome
-    e a barra lateral prioriza Área de Trabalho, Downloads e Início. Filtros MIME
-    são aplicados quando disponíveis; cancelar retorna uma lista vazia. No modo
-    de pasta, arquivos reais são enviados com caminhos relativos quando existe
-    um arquivo na raiz selecionada, evitando marcadores `/.`; pastas sem arquivos
-    na raiz permanecem no fluxo padrão do QtWebEngine.
+  - Todos os seletores de arquivo e pasta usam `_ULTILIDADES_/explorer.py`, uma
+    janela Qt própria, independente do gerenciador de arquivos do sistema. Os
+    modos incluem abrir um/mais arquivos, selecionar pasta, salvar e gerenciar
+    arquivos. Ela é usada em uploads, downloads, vídeos, capturas/PDF,
+    exportações, seleção de raiz do Explorador local e abertura do AppData/pasta
+    de downloads. Uploads aplicam filtros MIME quando disponíveis; cancelar
+    retorna seleção vazia. No modo de pasta, arquivos reais são enviados com
+    caminhos relativos quando existe um arquivo na raiz selecionada, evitando
+    marcadores `/.`; pastas sem arquivos na raiz permanecem no fluxo de diretório
+    do QtWebEngine.
+  - O Explorer guarda a última pasta e locais recentes na configuração do AppData
+    e restaura a localização na próxima sessão normal. Janelas anônimas não leem
+    nem gravam esse estado.
   - O assistente e o tradutor só coletam `document.body.innerText` após ação
     explícita; não persistem prompt, texto da página, histórico de conversa ou
     resposta. Conversas por aba vivem apenas na memória da janela. A tradução
@@ -209,8 +268,9 @@ DECISÕES DE ARQUITETURA
     envio pausa enquanto o usuário escolhe salvar ou cancelar; a senha só vai ao
     keyring após confirmação. O modo anônimo não captura credenciais.
   - Os painéis de anotações, downloads, inspeção e IA compartilham a mesma pilha
-    lateral abaixo da navegação; os controles da janela permanecem na faixa
-    externa direita.
+    lateral abaixo da navegação. A barra de ferramentas vertical ocupa a borda
+    direita da área central e usa a paleta do tema. Os controles da janela ficam
+    na extremidade direita da barra superior.
   - O painel de IA deve ser inicializado durante `_build_interface`, antes da
     criação de abas que possam liberar o contexto de IA ao serem fechadas.
   - Erros de configuração do assistente (provedor, modelo ou chave ausente) ficam
@@ -238,9 +298,29 @@ DECISÕES DE ARQUITETURA
   - O diagnóstico de desempenho registra somente tempos de etapas internas,
     categoria do esquema, duração e sucesso da navegação. Não registra URL, título
     ou conteúdo da página. Um monitor compartilhado atualiza CPU/RAM a cada três
-    segundos na barra de status; o painel lateral reutiliza a mesma amostra. Os
-    valores não são persistidos. Como `chrome://gpu` falhou e abriu uma aba branca,
+    segundos no canto direito da faixa de favoritos; mensagens temporárias ocupam
+    o mesmo espaço, e o painel lateral reutiliza a amostra. Os valores não são
+    persistidos. Como `chrome://gpu` falhou e abriu uma aba branca,
     o menu e o painel mostram uma explicação em diálogo, sem forçar aceleração.
+  - A aba Explorador é um QWidget nativo, único por janela, acessível pelo botão no
+    rodapé da barra direita, ao lado de Abrir pasta de dados, ou por Ctrl+Shift+F;
+    não fica no menu. A árvore expande ramos independentemente e carrega cada
+    pasta sob demanda. O caminho digitado é aplicado por Abrir pasta, enquanto
+     Escolher abre o seletor. Ao escolher a raiz, a estrutura completa é gerada
+     automaticamente; os itens começam marcados e desmarcá-los remove o item ou
+     ramo da saída. Um clique simples mostra uma prévia compacta e dois cliques
+     abrem o arquivo em uma aba interna. Widgets que não são
+    QWebEngineView não entram em histórico ou sessão; ao selecionar um, o endereço
+    é limpo e as ações de página ficam desativadas. A digitação nesse endereço não
+    consulta sugestões enquanto não houver página web selecionada.
+  - O documento do Explorador usa somente nomes e metadados locais. A prévia
+    compacta lê apenas conteúdo local limitado, sem executar nem enviar arquivos.
+    A raiz canônica é
+    revalidada antes de cada listagem/contagem; links simbólicos e reparse points
+    do Windows são exibidos como links sem descida. As tarefas cooperativas
+    respeitam limites configurados de itens, tempo, profundidade, linhas e
+    caracteres. A lista de ignorados fica no AppData e também é usada em janelas
+    anônimas; ignorar nomes apenas os oculta.
 
 ────────────────────────────────────────────────────────────────────────────────
 DEPENDÊNCIAS EXTERNAS

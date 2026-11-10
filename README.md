@@ -24,16 +24,25 @@ site, então a janela do navegador não aparece no preview web da Replit.
 - Download de vídeos com análise de título, canal, duração e qualidades.
 - Temas, busca na página e atalhos de teclado.
 - Diagnóstico local de suporte a codecs de vídeo pelo QtWebEngine, no menu do navegador.
-- Leitura contínua e leve de CPU/RAM à direita na barra de status; painel lateral
-  detalha processos e tempos desta sessão. O diagnóstico da GPU explica a
-  limitação sem abrir `chrome://gpu`, que falhou nesta execução.
+- Leitura contínua e leve de CPU/RAM no canto direito da faixa inferior de
+  favoritos; mensagens temporárias de carregamento ou aviso ocupam esse espaço
+  e depois dão lugar às métricas novamente. O painel lateral detalha processos
+  e tempos desta sessão. O diagnóstico gráfico consulta
+  WebGL/WebGPU na página ativa e mostra dados do contexto QtWebEngine; não abre
+  `chrome://gpu` nem afirma aceleração do compositor sem evidência.
 - Ferramentas integradas de segurança: análise local de endereço, cabeçalhos HTTP
   e certificado HTTPS.
 - DevTools do Chromium e central de privacidade por site.
 - Gerenciador de senhas no cofre seguro do sistema operacional.
-- Seletor Qt de arquivos e pastas para uploads em páginas web.
+- Explorer próprio para escolher arquivos e pastas em uploads, downloads,
+  capturas, exportações e acesso ao AppData.
+- Explorador local somente de leitura, com árvore hierárquica expansível,
+  seleção recursiva e cópia de estruturas de pastas em texto.
 - Assistente opcional para resumir e responder perguntas sobre a página atual.
-- Ações no rodapé para abrir a pasta de dados e limpar o cache.
+- Barra lateral direita com ações da página, ferramentas, Histórico, Downloads,
+  DevTools, Desempenho e ações de manutenção.
+  O componente visual fica em `_APP_/barra_direita_tools/sidebar.py`; `browser.py`
+  conecta esses controles às ações e painéis existentes, sem duplicar os botões.
 
 ## Requisitos
 
@@ -85,18 +94,24 @@ instale os componentes Qt/X11 correspondentes à sua distribuição.
 
 ## Interface e atalhos
 
-Os botões da barra incluem favoritos, bloqueador, download de vídeo, captura,
-anotações e o assistente de IA. O painel de downloads comuns mostra o andamento e
-os estados de cada arquivo. O histórico de navegação pode ser aberto por `Ctrl+H`,
-pelo menu ou pelo botão na barra lateral direita; o histórico de downloads é
-separado e também tem botão lateral. Capturas ficam em **Ferramentas**; temas,
-bloqueador, dados, conexões de IA e atalhos ficam em **Configurações**. A lista
+A barra superior mantém a marca, voltar, avançar, recarregar e o campo de
+endereço, seguidos de escudo, economia de dados, favoritos e um separador. Depois
+vêm Minimizar, Maximizar/restaurar e Fechar.
+Os demais comandos da página — bloqueador, economia de dados, favoritos, captura,
+vídeo/áudio, anotações, assistente de IA e tradução — ficam no topo da barra
+vertical à direita, abaixo da navegação. Depois de um separador, a barra reúne
+Histórico, Downloads, Inspetor DOM, DevTools e Desempenho. No rodapé, após um
+espaço expansível e outro separador, ficam Limpar cache e Abrir pasta de dados,
+nessa ordem. Histórico continua acessível por `Ctrl+H`; abrir dados continua acessível por
+`Ctrl+Shift+D`. Favoritos também permanece no menu principal. Temas, configurações
+do bloqueador, conexões de IA e atalhos ficam em **Configurações**. A lista
 completa de atalhos também abre com `F1`.
 
 A faixa fixa de favoritos no rodapé mostra até dez itens, com o ícone do site e
-o nome editável. Ela fica separada das mensagens temporárias para não sumir
-quando o navegador mostra avisos. Cada item tem um botão para abrir e um menu
-de três pontos com opções para editar o nome ou remover com confirmação;
+o nome editável. CPU/RAM e mensagens temporárias de carregamento ou aviso
+compartilham o espaço compacto à direita; a mensagem substitui as métricas
+temporariamente, sem ocultar os favoritos. Cada item tem um botão para abrir e
+um menu de três pontos com opções para editar o nome ou remover com confirmação;
 favoritos além dos dez primeiros continuam na lista completa. Os nomes maiores
 são abreviados na faixa e ficam completos ao passar o mouse; a largura de cada
 item acompanha o texto exibido.
@@ -136,24 +151,67 @@ janela de destino não fecha abas.
 
 ### Uploads de arquivos e pastas
 
-Ao clicar num controle de upload de site, o hen-Nave abre um seletor Qt próprio,
-modal à janela do navegador e sem usar o seletor nativo do sistema. Ele distingue
-arquivo único, vários arquivos, pasta e seleção para salvar. Quando a página pede
-uma pasta, o hen-Nave envia a lista de arquivos encontrados nela, preservando os
-caminhos relativos. Para evitar que alguns sites tentem tratar marcadores de
-diretório `/.` como arquivos, o seletor prepara essa lista diretamente quando a
-pasta contém arquivos na raiz; pastas sem arquivos na raiz continuam usando o
-modo de diretório do QtWebEngine. Em seleções comuns, usa os tipos MIME aceitos
-pelo site quando disponíveis. Cancelar fecha o seletor sem enviar arquivos. Os
-rótulos e controles do seletor estão em português, a lista aparece em ordem
-alfabética e a barra lateral oferece atalhos para Área de Trabalho, Downloads e
-Início.
+O hen-Nave usa o Explorer próprio de `_ULTILIDADES_/explorer.py` para escolher
+arquivos e pastas e para salvar arquivos. Ele substitui os seletores de arquivos
+do sistema operacional nos fluxos do app: uploads, destino de downloads e vídeos,
+capturas/PDF, exportações, seleção de raiz da aba Explorador e abertura de pastas
+do AppData e de downloads. A janela tem endereço editável, busca na pasta atual,
+navegação voltar/avançar/subir/início/atualizar, locais frequentes, lista com
+detalhes, filtros, seleção múltipla, criação de pasta, renomeação e cópia de
+caminho.
+
+O Explorer distingue arquivo único, vários arquivos, pasta e seleção para salvar.
+Quando uma página pede uma pasta, o hen-Nave envia a lista de arquivos encontrados
+nela, preservando os caminhos relativos. Para evitar que alguns sites tratem
+marcadores de diretório `/.` como arquivos, essa lista é preparada diretamente
+quando a pasta contém arquivos na raiz; pastas sem arquivos na raiz continuam no
+modo de diretório do QtWebEngine. Em seleções comuns, são aplicados os tipos MIME
+aceitos pelo site quando disponíveis. Cancelar fecha o Explorer sem enviar
+arquivos.
+
+O último local e os locais recentes ficam no AppData e são restaurados em uma
+próxima sessão normal quando o fluxo não fornece uma pasta inicial específica.
+Janelas anônimas não leem nem gravam essa localização.
 
 O botão de download abre um painel à direita. Ele analisa o link da aba atual ou
 um endereço colado no painel, permite escolher a qualidade máxima, o formato e a
 pasta de destino. Também pode baixar áudio, salvar transcrições e gerar legendas
 SRT. A transcrição usa legendas disponíveis primeiro e recorre ao Whisper quando
 necessário. As tarefas selecionadas rodam em segundo plano.
+
+### Explorador local
+
+Abra pelo botão **Explorador** no rodapé da barra direita ou use `Ctrl+Shift+F`.
+Esta aba de leitura de estrutura é separada do Explorer modal usado para escolher
+arquivos e pastas. Ela é uma aba Qt nativa, separada das páginas web. Cole o caminho da
+pasta e clique em **Abrir pasta**; **Escolher...** abre a janela de seleção como
+alternativa. As pastas abrem os itens aninhados no mesmo lugar, e vários ramos
+podem ficar expandidos ao mesmo tempo. Marcar uma pasta inclui seu conteúdo e
+também a expande para permitir exceções nos itens internos.
+
+Ao escolher uma pasta, o documento mostra automaticamente a árvore completa,
+com a raiz na primeira linha. Os itens começam marcados; desmarcar um arquivo
+ou uma pasta remove esse item ou ramo, e marcá-lo novamente o inclui.
+Um clique simples em um arquivo mostra uma prévia compacta no terceiro painel;
+dois cliques abrem a prévia completa em uma nova aba interna.
+Depois, copie o texto para enviar a outra IA ou salve-o como `.txt`.
+O documento de estrutura contém nomes e contagens, não o conteúdo dos arquivos.
+A prévia local é limitada e não executa nem envia arquivos. Copiar ou salvar
+só acontece quando você escolhe essa ação.
+
+A leitura é somente de metadados. O caminho permanece limitado à raiz escolhida;
+links simbólicos e pontos de reanálise do Windows são identificados e não são
+seguidos. Os limites configurados incluem até 500 itens, 3 segundos, 12 níveis,
+1.200 linhas e 40.000 caracteres. Quando uma pasta não pode ser lida, ela aparece
+como bloqueada; quando um limite é alcançado, a listagem ou árvore fica marcada
+como parcial.
+
+As opções de nomes ignorados ficam recolhidas em **Nomes ignorados**. O
+gerenciador começa com `.git`, `.venv`, `venv`, `__pycache__`, `node_modules` e
+`.idea`. Os nomes são comparados exatamente e persistidos em
+`config/explorer_ignored_names.json` dentro da pasta de dados do hen-Nave.
+Ignorar apenas esconde o nome; não protege o arquivo. **Mostrar ignorados** vem
+desligado.
 
 ### Assistente de página
 
@@ -201,6 +259,7 @@ pelo yt-dlp e do acesso permitido pelo site de origem.
 | Abrir a página inicial | `Alt+Home` |
 | Abrir o histórico | `Ctrl+H` |
 | Abrir os favoritos | `Ctrl+Shift+O` |
+| Abrir o Explorador local | `Ctrl+Shift+F` |
 | Localizar na página | `Ctrl+F` |
 | Capturar a página | `Ctrl+Shift+S` |
 | Abrir o assistente da página | `Ctrl+Shift+Y` |
@@ -220,9 +279,9 @@ Os dados ficam fora da pasta do código:
 | Linux e macOS | `~/.hen-nave/` |
 
 A pasta contém configurações, banco SQLite, perfil persistente do WebEngine,
-cache e logs. Use o botão de pasta no rodapé ou `Ctrl+Shift+D` para abri-la.
-O botão **Limpar cache** remove o cache HTTP do navegador; cookies e histórico
-não são apagados.
+cache e logs. Use **Abrir pasta de dados** na seção de manutenção da barra lateral
+ou `Ctrl+Shift+D` para abri-la. **Limpar cache**, na mesma seção, remove o cache
+HTTP do navegador; cookies e histórico não são apagados.
 
 **Privacidade do site** limpa apenas os dados da origem atual após confirmação;
 ela não substitui a limpeza geral do cache.
@@ -283,13 +342,19 @@ formulários automaticamente.
 
 ```text
 .
+├── EXPLORER_INTEGRACAO.txt Regras para a integração do Explorer de arquivos
 ├── _APP_/                 Janelas, painéis e ferramentas integradas
+│   └── explorer_tab.py    Aba nativa de navegação local em árvore hierárquica
 ├── _APPDATA_/             Pastas e arquivos de dados do usuário
 ├── _CONFIGURA_/           Textos, temas, cores e atalhos
 ├── _LOGS_/                Registro de eventos e falhas
-├── _SERVICOS_/            Vídeo, IA, bloqueador e análise de segurança
-├── _THREADS_/             Threads e gerenciamento de execução
+├── _SERVICOS_/            Vídeo, IA, bloqueador, segurança e sistema de arquivos
+│   ├── explorer_filesystem.py  Leitura segura e árvore textual
+│   └── explorer_settings.py    Persistência dos nomes ignorados
+├── _THREADS_/             Threads, Explorador e gerenciamento de execução
+│   └── explorer_worker.py  Leituras do Explorador em segundo plano
 ├── _ULTILIDADES_/         Pop-ups, ícones e funções reutilizáveis
+│   └── explorer.py        Explorer próprio de arquivos e pastas
 ├── midias/                Logo do navegador e ícone do aplicativo
 ├── nucleo/                Documentação do projeto
 ├── tests/                 Testes automatizados

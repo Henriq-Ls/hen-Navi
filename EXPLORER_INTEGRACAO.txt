@@ -1,0 +1,158 @@
+INTEGRACAO DO EXPLORER NO HEN-NAVE
+==================================
+
+OBJETIVO
+--------
+Este projeto já é o navegador desktop hen-Nave. O Explorer está sendo incorporado
+para oferecer uma janela própria de navegação e seleção de arquivos e pastas,
+mantendo o funcionamento e as regras que o navegador já tinha.
+
+ORIGEM E CÓPIA DO PROJETO
+------------------------
+O Explorer foi trazido do template PySide6, originalmente em:
+  _template_pyside6/_ULTILIDADES_/explorer.py
+
+A cópia integrada ao navegador está em:
+  _ULTILIDADES_/explorer.py
+
+Use a cópia dentro de hen-Navi 2 como implementação deste projeto. Ela foi
+adaptada para usar as configurações, textos, ícones, temas e AppData do hen-Nave.
+Não importe o arquivo diretamente do template nem o substitua por outra cópia sem
+preservar essas adaptações.
+
+REGRA PRINCIPAL
+---------------
+Todo fluxo que pede ao usuário para escolher, abrir, salvar ou navegar até um
+arquivo ou uma pasta deve usar o Explorer de _ULTILIDADES_/explorer.py. Não
+reintroduza QFileDialog nem seletores nativos do sistema operacional para esses
+fluxos.
+
+O que está sendo substituído é a janela usada para escolher caminhos. O
+comportamento do hen-Nave em volta dela deve continuar igual: abas e navegação,
+uploads, downloads, capturas, exportações, modos anônimos, nomes iniciais,
+extensões, filtros e cancelamentos não devem mudar sem uma solicitação explícita.
+
+COMO USAR
+---------
+Importe a implementação do projeto:
+
+  from _ULTILIDADES_.explorer import Explorer, ExplorerMode
+
+Para escolher caminhos, use os métodos correspondentes:
+
+  Explorer.get_open_file_name(...)
+  Explorer.get_open_file_names(...)
+  Explorer.get_existing_directory(...)
+  Explorer.get_save_file_name(...)
+
+Para abrir o gerenciador do projeto já em uma pasta:
+
+  dialog = Explorer(
+      parent,
+      mode=ExplorerMode.MANAGE,
+      start_path=caminho,
+  )
+  dialog.exec()
+
+Os métodos de seleção retornam caminho(s) quando confirmados e resultado vazio
+quando o usuário cancela. Preserve esse contrato em cada integração.
+
+FLUXOS INTEGRADOS
+-----------------
+- browser.py: upload de um arquivo, vários arquivos, pasta e seleção para salvar;
+  destino de downloads; salvamento de capturas e PDFs; abertura do AppData e da
+  pasta de uma captura.
+- _APP_/explorer_tab.py: escolha da pasta-raiz e salvamento da árvore em TXT.
+- _APP_/download_video.py: escolha da pasta de destino do vídeo.
+- _APP_/anotacoes.py: exportação de anotações.
+- _APP_/barra_direita_tools/browser_downloads.py: abertura da pasta do download.
+- _APP_/browser_downloads.py: módulo legado de downloads também deve manter a
+  abertura de pastas pelo Explorer do projeto.
+
+UPLOAD DE PASTAS
+----------------
+Mantenha a distinção entre arquivo único, vários arquivos e pasta solicitada por
+uma página web. O hen-Nave usa os filtros MIME aceitos pelo site quando
+disponíveis. No upload de pasta, preserve a lista de arquivos e seus caminhos
+relativos; pastas sem arquivos diretamente na raiz continuam no fluxo de
+diretório já esperado pelo QtWebEngine. Cancelar não deve iniciar nem enviar um
+upload.
+
+APPDATA E MODO ANÔNIMO
+----------------------
+A última pasta e os caminhos recentes são salvos na configuração do AppData, na
+chave "explorer". Preserve as outras configurações ao ler e gravar esse estado.
+Janelas normais podem restaurar a última pasta quando o fluxo não fornece um
+caminho inicial válido ou específico. Janelas anônimas não devem ler nem gravar
+essa preferência.
+
+EXPLORADOR DE ESTRUTURAS
+------------------------
+_APP_/explorer_tab.py é outra ferramenta: uma aba separada que gera a estrutura
+textual de uma pasta. Ela não é substituída pelo Explorer modal; apenas seus
+botões para escolher pasta e salvar arquivo usam agora _ULTILIDADES_/explorer.py.
+Mantenha as funções de leitura, seleção e geração dessa aba.
+
+EXCEÇÃO DE COMPORTAMENTO
+-----------------------
+A ação explícita "abrir arquivo" de um download concluído continua abrindo o
+arquivo no aplicativo associado do sistema, por meio do serviço multiplataforma
+do Qt. Isso não é uma janela para escolher arquivos ou navegar pastas. A ação
+"abrir pasta" deve continuar mostrando o Explorer do hen-Nave.
+
+PRÓXIMA ETAPA PLANEJADA: PRÉVIA E PROPRIEDADES
+----------------------------------------------
+Esta melhoria ainda NÃO foi implementada. O usuário está testando o Explorer e
+vai enviar as partes dos dois projetos para que a alteração seja feita nos dois,
+mantendo as implementações organizadas e compatíveis.
+
+Adicionar uma terceira coluna/painel lateral de prévia e propriedades:
+- Imagens: mostrar uma miniatura da imagem selecionada, sem abrir outro programa.
+- Vídeos: mostrar uma imagem estática representativa do vídeo; não reproduzir o
+  vídeo automaticamente.
+- Pastas: mostrar propriedades como tamanho total, quantidade de arquivos e
+  subpastas e data de modificação. Apresentar o tamanho em unidade legível, como
+  MiB/GiB.
+- A prévia e as propriedades devem atualizar ao passar o mouse ou mover o foco/
+  seleção para outro item. Isso não deve abrir a pasta ou o arquivo, nem mudar
+  as regras atuais de seleção/aceitação dos modos de abrir, salvar ou enviar.
+- Calcular propriedades de pastas em segundo plano para não travar a janela.
+  Tratar pastas inacessíveis, arquivos grandes e links simbólicos sem seguir
+  links nem entrar em ciclos. Mostrar estado de carregamento ou informação
+  parcial quando não for possível concluir a leitura.
+- Manter a navegação e o painel de arquivos utilizáveis; a prévia é somente
+  informativa e não reproduz mídia.
+
+Quando os dois projetos estiverem disponíveis, aplicar e validar a melhoria nas
+duas implementações, sem deixar uma versão com comportamento diferente:
+
+  _template_pyside6/_ULTILIDADES_/explorer.py
+  hen-Navi 2/_ULTILIDADES_/explorer.py
+
+Adaptar os textos, temas, ícones e integrações de cada projeto ao seu próprio
+configurador. Não copiar uma versão por cima da outra sem revisar as diferenças.
+Não marcar a tarefa como concluída até a prévia e as propriedades funcionarem
+nos dois Explorers e o hen-Nave continuar preservando seus fluxos existentes.
+O usuário está fazendo testes agora; aguardar o envio combinado antes de começar
+essa implementação.
+
+REGRAS PARA ALTERAÇÕES FUTURAS
+------------------------------
+1. Não altere a navegação ou outros comportamentos existentes do hen-Nave ao
+   integrar ou corrigir o Explorer.
+2. Mantenha os modos, filtros, nomes iniciais, extensões, caminhos relativos e
+   resultados de cancelamento de cada fluxo.
+3. Use textos em _CONFIGURA_/__init__.py, estilos do tema em
+   _CONFIGURA_/theme_engine.py e ícones de _ULTILIDADES_/icones.py.
+4. Não persista localização ou histórico de caminhos em janelas anônimas.
+5. Não confunda o Explorer de arquivos com a aba Explorador de estruturas.
+6. Após mudanças, execute os testes do projeto:
+
+     python -m unittest discover -s tests -v
+     python -m compileall -q .
+
+7. A interface Qt precisa de validação em um ambiente com PySide6 instalado. Se
+   o ambiente não tiver PySide6, registre que a execução visual não foi validada.
+
+Documentação relacionada: README.md, nucleo/_DOC_PROJETO.txt e
+nucleo/_ULTIMOS_FIX.txt.

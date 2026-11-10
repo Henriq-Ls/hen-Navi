@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import tempfile
 import unittest
@@ -5,19 +7,28 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QEvent, QPoint, QRect
-from PySide6.QtWidgets import (
-    QApplication,
-    QStatusBar,
-    QToolButton,
-    QVBoxLayout,
-    QWidget,
+try:
+    from PySide6.QtCore import QEvent, QPoint, QRect
+    from PySide6.QtWidgets import (
+        QApplication,
+        QStatusBar,
+        QToolButton,
+        QVBoxLayout,
+        QWidget,
+    )
+
+    from _APPDATA_.storage import BrowserStorage
+    from _APP_.favorites_bar import FavoritesStatusBar
+except ModuleNotFoundError:
+    PYSIDE6_AVAILABLE = False
+else:
+    PYSIDE6_AVAILABLE = True
+
+
+@unittest.skipUnless(
+    PYSIDE6_AVAILABLE,
+    "PySide6 não está instalado neste ambiente.",
 )
-
-from _APPDATA_.storage import BrowserStorage
-from _APP_.favorites_bar import FavoritesStatusBar
-
-
 class FavoritesBarRefreshQtTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

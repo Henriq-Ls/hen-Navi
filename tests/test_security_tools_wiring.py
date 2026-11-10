@@ -12,22 +12,41 @@ class SecurityToolsWiringTests(unittest.TestCase):
         cls.browser_source = (PROJECT_ROOT / "browser.py").read_text(
             encoding="utf-8"
         )
+        cls.panels_source = (
+            PROJECT_ROOT / "_BROWSER_" / "window_panels.py"
+        ).read_text(encoding="utf-8")
+        cls.manager_source = (
+            PROJECT_ROOT
+            / "_APP_"
+            / "barra_direita_tools"
+            / "manager.py"
+        ).read_text(encoding="utf-8")
         cls.tools_source = (
             PROJECT_ROOT / "_APP_" / "security_tools.py"
+        ).read_text(encoding="utf-8")
+        cls.devtools_source = (
+            PROJECT_ROOT
+            / "_APP_"
+            / "barra_direita_tools"
+            / "devtools.py"
         ).read_text(encoding="utf-8")
         cls.privacy_source = (
             PROJECT_ROOT / "_APP_" / "site_privacy.py"
         ).read_text(encoding="utf-8")
 
     def test_devtools_tracks_selected_tab_and_uses_embedded_webengine(self):
-        self.assertIn("page.setDevToolsPage(self.devtools_page)", self.tools_source)
-        self.assertIn("self._sync_devtools_page()", self.browser_source)
-        self.assertIn('self._toggle_side_panel("devtools")', self.browser_source)
-        self.assertIn("ico_inspecionar()", self.browser_source)
-        self.assertIn("ico_ferramentas()", self.browser_source)
         self.assertIn(
-            'self.devtools_action.setIcon(ico_ferramentas())',
-            self.browser_source,
+            "page.setDevToolsPage(self.devtools_page)",
+            self.devtools_source,
+        )
+        self.assertIn("self._sync_devtools_page()", self.browser_source)
+        self.assertIn(
+            'self._callback("toggle_side_panel")(\n                "devtools"',
+            self.manager_source,
+        )
+        self.assertIn(
+            "parent.devtools_action = QAction(\n            ico_ferramentas()",
+            self.manager_source,
         )
         self.assertIn(
             '"inspect_page": "Inspecionar DOM da página"',
@@ -43,27 +62,39 @@ class SecurityToolsWiringTests(unittest.TestCase):
         )
 
     def test_devtools_detaches_when_its_panel_is_hidden(self):
-        tree = ast.parse(self.browser_source)
-        window = next(
+        browser_tree = ast.parse(self.browser_source)
+        browser_window = next(
             node
-            for node in tree.body
+            for node in browser_tree.body
             if isinstance(node, ast.ClassDef) and node.name == "BrowserWindow"
+        )
+        browser_methods = {
+            node.name: node
+            for node in browser_window.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        panels_tree = ast.parse(self.panels_source)
+        panels_class = next(
+            node
+            for node in panels_tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "BrowserWindowPanelsMixin"
         )
         methods = {
             node.name: node
-            for node in window.body
+            for node in panels_class.body
             if isinstance(node, ast.FunctionDef)
         }
         sync_source = ast.get_source_segment(
             self.browser_source,
-            methods["_sync_devtools_page"],
+            browser_methods["_sync_devtools_page"],
         )
         toggle_source = ast.get_source_segment(
-            self.browser_source,
+            self.panels_source,
             methods["_toggle_side_panel"],
         )
         close_source = ast.get_source_segment(
-            self.browser_source,
+            self.panels_source,
             methods["_close_side_panel"],
         )
 
